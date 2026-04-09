@@ -14,7 +14,7 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-const TEMP_DIR = path.join(process.cwd(), 'temp_sync');
+const TEMP_DIR = process.env.VERCEL ? '/tmp/temp_sync' : path.join(process.cwd(), 'temp_sync');
 const SFTP_FILENAME = 'wiegand-json-seller-api.zip';
 
 export async function runVehicleSync() {
