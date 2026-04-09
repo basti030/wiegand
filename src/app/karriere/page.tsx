@@ -1,4 +1,10 @@
 import { Zap, Target, Star, Shield, GraduationCap, Coins, TrendingUp, Users, ChevronRight, MessageSquare, ExternalLink, Mail, Phone } from "lucide-react";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Karriere & Jobs | Autohaus Wiegand",
+  description: "Werden Sie Teil unseres Teams! Entdecken Sie aktuelle Stellenangebote und Karrieremöglichkeiten beim Autohaus Wiegand in Büdingen und Gelnhausen.",
+};
 
 export default function KarrierePage() {
   const benefits = [

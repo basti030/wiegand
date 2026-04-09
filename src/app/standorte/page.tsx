@@ -1,4 +1,10 @@
 import { Phone, Mail, Clock, MapPin, Printer, ChevronRight, MessageSquare, ExternalLink } from "lucide-react";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Unsere Standorte | Autohaus Wiegand",
+  description: "Besuchen Sie uns in Büdingen oder Gelnhausen. Hier finden Sie Adressen, Öffnungszeiten und Ansprechpartner unserer Autohäuser.",
+};
 
 export default function StandortePage() {
   const locations = [

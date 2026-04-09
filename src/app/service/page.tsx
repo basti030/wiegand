@@ -1,4 +1,10 @@
 import { Shield, Wrench, Wind, Zap, Activity, Calendar, Car, Clock, CheckCircle2, ChevronRight, Settings, Phone, MessageSquare } from "lucide-react";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Werkstatt & Service | Autohaus Wiegand",
+  description: "Erstklassiger Werkstatt-Service für SEAT, CUPRA & Škoda. Von Inspektion bis Reparatur – Ihr Fahrzeug ist beim Autohaus Wiegand in Büdingen & Gelnhausen in besten Händen.",
+};
 
 export default function ServicePage() {
   const servicePortfolio = [

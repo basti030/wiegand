@@ -1,4 +1,10 @@
 import { Calendar, MapPin, Phone, Info, ChevronRight, Settings, ShieldCheck, Clock } from "lucide-react";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Termin vereinbaren | Autohaus Wiegand",
+  description: "Buchen Sie Ihren nächsten Werkstatt- oder Beratungstermin ganz einfach online beim Autohaus Wiegand in Büdingen oder Gelnhausen.",
+};
 
 export default function TerminPage() {
   const centers = [

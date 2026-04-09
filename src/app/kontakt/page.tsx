@@ -1,4 +1,10 @@
 import { Mail, Phone, MapPin, Clock, ShieldAlert, ChevronRight, Send, MessageSquare } from "lucide-react";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Kontakt & Anfahrt | Autohaus Wiegand",
+  description: "Haben Sie Fragen oder möchten Sie einen Termin vereinbaren? Finden Sie hier alle Kontaktmöglichkeiten für unsere Standorte in Büdingen und Gelnhausen.",
+};
 
 export default function KontaktPage() {
   const locations = [

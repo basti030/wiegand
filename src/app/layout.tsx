@@ -5,8 +5,8 @@ import { Phone, Mail, Clock, MessageSquare, Facebook, Instagram, MapPin, Printer
 import { Header } from "../components/Header";
 
 export const metadata: Metadata = {
-  title: "Autohaus Wiegand | Ihr Partner für SEAT, CUPRA & SKODA",
-  description: "Entdecken Sie unsere große Auswahl an Neu- und Gebrauchtwagen sowie erstklassigen Werkstatt-Service in Bismark.",
+  title: "Autohaus Wiegand | Ihr Partner für SEAT, CUPRA & SKODA in Büdingen & Gelnhausen",
+  description: "Entdecken Sie unsere große Auswahl an Neu- und Gebrauchtwagen sowie erstklassigen Werkstatt-Service beim Autohaus Wiegand in Büdingen und Gelnhausen.",
 };
 
 export default function RootLayout({

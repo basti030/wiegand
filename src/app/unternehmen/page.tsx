@@ -1,5 +1,11 @@
 import { Mail, Phone, MessageSquare, MapPin, Users, ArrowRight } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Team & Ansprechpartner | Autohaus Wiegand",
+  description: "Lernen Sie die Experten vom Autohaus Wiegand kennen. Ihr kompetenter Ansprechpartner für SEAT, CUPRA & Škoda in Büdingen und Gelnhausen.",
+};
 
 export default async function TeamPage() {
   const { data: employees, error } = await supabase

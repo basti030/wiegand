@@ -1,5 +1,11 @@
 import { supabase } from "@/lib/supabase";
 import InventoryManager from "@/components/inventory/InventoryManager";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Fahrzeugbestand | Autohaus Wiegand – SEAT, CUPRA & SKODA",
+  description: "Entdecken Sie unsere große Auswahl an Neu- und Gebrauchtwagen sowie erstklassigen Werkstatt-Service in Büdingen und Gelnhausen.",
+};
 
 export const dynamic = 'force-dynamic';
 

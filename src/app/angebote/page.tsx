@@ -1,4 +1,10 @@
 import { Car, Zap, Shield, Video, ChevronRight, ArrowUpRight, CheckCircle2 } from "lucide-react";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Aktuelle Angebote | Autohaus Wiegand",
+  description: "Entdecken Sie exklusive Angebote für Neuwagen, Gebrauchtwagen und erstklassigen Service beim Autohaus Wiegand in Büdingen und Gelnhausen.",
+};
 
 export default function AngebotePage() {
   const offerCategories = [
