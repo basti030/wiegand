@@ -39,7 +39,7 @@ export async function POST(req: Request) {
     } else {
       return NextResponse.json({ 
         success: false, 
-        message: "Fehler während der Synchronisation.",
+        message: `Fehler: ${result.error || 'Unbekannter Fehler während der Synchronisation.'}`,
         error: result.error 
       }, { status: 500 });
     }
