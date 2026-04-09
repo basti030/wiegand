@@ -30,6 +30,10 @@ yarn-error.log*
 # Large/Temporary Data
 *.zip
 *.json
+!package.json
+!package-lock.json
+!vercel.json
+!tsconfig.json
 /temp_data/
 /scratch/
 test-db.ts
