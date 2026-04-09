@@ -167,18 +167,45 @@ export default function InventoryManager({ initialVehicles, options }: Inventory
   const renderPagination = () => {
     if (totalPages <= 1) return null;
 
+    const maxVisiblePages = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+
+    if (endPage - startPage + 1 < maxVisiblePages) {
+      startPage = Math.max(1, endPage - maxVisiblePages + 1);
+    }
+
+    const pages = [];
+    for (let i = startPage; i <= endPage; i++) {
+      pages.push(i);
+    }
+
+    const handlePageChange = (page: number) => {
+      setCurrentPage(page);
+      const element = document.getElementById('inventory-results');
+      if (element) {
+        const offset = 120; // Adjust for sticky header
+        const elementPosition = element.getBoundingClientRect().top + window.pageYOffset;
+        window.scrollTo({
+          top: elementPosition - offset,
+          behavior: 'smooth'
+        });
+      }
+    };
+
     return (
-      <div className="flex flex-col md:flex-row justify-between items-center bg-white p-6 md:px-10 rounded-[2.5rem] border border-gray-100 shadow-sm gap-6 font-bold text-xs">
+      <div className="flex flex-col lg:flex-row justify-between items-center bg-white p-6 md:px-10 rounded-[2.5rem] border border-gray-100 shadow-sm gap-8 font-bold text-xs">
         <div className="text-gray-400 uppercase tracking-[0.2em] flex items-center gap-3">
           <span className="text-brand-dark font-black text-sm">{filteredVehicles.length}</span> 
-          <span>Fahrzeuge gefunden</span>
+          <span>Ergebnisse</span>
         </div>
         
-        <div className="flex items-center gap-3 bg-brand-gray/50 p-2 rounded-2xl">
+        <div className="flex items-center gap-2 flex-wrap justify-center">
+          {/* First / Prev */}
           <button 
-            onClick={() => { setCurrentPage(1); window.scrollTo({ top: 300, behavior: 'smooth' }); }}
+            onClick={() => handlePageChange(1)}
             disabled={currentPage === 1}
-            className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all ${currentPage === 1 ? 'text-gray-300 opacity-50' : 'bg-white text-brand-dark hover:bg-brand-orange hover:text-white shadow-sm'}`}
+            className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all ${currentPage === 1 ? 'text-gray-200 cursor-not-allowed' : 'bg-brand-gray/50 text-brand-dark hover:bg-brand-orange hover:text-white shadow-sm'}`}
             title="Erste Seite"
           >
             <ChevronLeft size={16} />
@@ -186,35 +213,67 @@ export default function InventoryManager({ initialVehicles, options }: Inventory
           </button>
           
           <button 
-            onClick={() => { setCurrentPage(prev => Math.max(1, prev - 1)); window.scrollTo({ top: 300, behavior: 'smooth' }); }}
+            onClick={() => handlePageChange(currentPage - 1)}
             disabled={currentPage === 1}
-            className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all ${currentPage === 1 ? 'text-gray-300 opacity-50' : 'bg-white text-brand-dark hover:bg-brand-orange hover:text-white shadow-sm'}`}
+            className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all ${currentPage === 1 ? 'text-gray-200 cursor-not-allowed' : 'bg-brand-gray/50 text-brand-dark hover:bg-brand-orange hover:text-white shadow-sm'}`}
             title="Vorherige Seite"
           >
             <ChevronLeft size={16} />
           </button>
 
-          <div className="px-6 flex items-center gap-2">
-            <span className="text-gray-400 uppercase tracking-widest">Seite</span>
-            <span className="w-10 h-10 flex items-center justify-center bg-brand-orange text-white rounded-xl shadow-lg shadow-brand-orange/20">
-              {currentPage}
-            </span>
-            <span className="text-gray-400 uppercase tracking-widest text-[10px]">von {totalPages}</span>
-          </div>
+          {/* Page Numbers */}
+          {startPage > 1 && (
+            <>
+              <button 
+                onClick={() => handlePageChange(1)}
+                className="w-10 h-10 flex items-center justify-center rounded-xl bg-brand-gray/50 text-brand-dark hover:bg-brand-orange hover:text-white transition-all"
+              >
+                1
+              </button>
+              {startPage > 2 && <span className="text-gray-300 px-1">...</span>}
+            </>
+          )}
 
+          {pages.map(page => (
+            <button
+              key={page}
+              onClick={() => handlePageChange(page)}
+              className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all font-black ${
+                currentPage === page 
+                  ? 'bg-brand-orange text-white shadow-lg shadow-brand-orange/30 scale-110 z-10' 
+                  : 'bg-brand-gray/50 text-brand-dark hover:bg-white hover:shadow-md'
+              }`}
+            >
+              {page}
+            </button>
+          ))}
+
+          {endPage < totalPages && (
+            <>
+              {endPage < totalPages - 1 && <span className="text-gray-300 px-1">...</span>}
+              <button 
+                onClick={() => handlePageChange(totalPages)}
+                className="w-10 h-10 flex items-center justify-center rounded-xl bg-brand-gray/50 text-brand-dark hover:bg-brand-orange hover:text-white transition-all"
+              >
+                {totalPages}
+              </button>
+            </>
+          )}
+
+          {/* Next / Last */}
           <button 
-            onClick={() => { setCurrentPage(prev => Math.min(totalPages, prev + 1)); window.scrollTo({ top: 300, behavior: 'smooth' }); }}
+            onClick={() => handlePageChange(currentPage + 1)}
             disabled={currentPage === totalPages}
-            className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all ${currentPage === totalPages ? 'text-gray-300 opacity-50' : 'bg-white text-brand-dark hover:bg-brand-orange hover:text-white shadow-sm'}`}
+            className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all ${currentPage === totalPages ? 'text-gray-200 cursor-not-allowed' : 'bg-brand-gray/50 text-brand-dark hover:bg-brand-orange hover:text-white shadow-sm'}`}
             title="Nächste Seite"
           >
             <ChevronRight size={16} />
           </button>
 
           <button 
-            onClick={() => { setCurrentPage(totalPages); window.scrollTo({ top: 300, behavior: 'smooth' }); }}
+            onClick={() => handlePageChange(totalPages)}
             disabled={currentPage === totalPages}
-            className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all ${currentPage === totalPages ? 'text-gray-300 opacity-50' : 'bg-white text-brand-dark hover:bg-brand-orange hover:text-white shadow-sm'}`}
+            className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all ${currentPage === totalPages ? 'text-gray-200 cursor-not-allowed' : 'bg-brand-gray/50 text-brand-dark hover:bg-brand-orange hover:text-white shadow-sm'}`}
             title="Letzte Seite"
           >
             <ChevronRight size={16} />
@@ -222,9 +281,9 @@ export default function InventoryManager({ initialVehicles, options }: Inventory
           </button>
         </div>
 
-        <div className="hidden lg:flex items-center gap-4 text-gray-400 uppercase tracking-widest">
+        <div className="hidden xl:flex items-center gap-4 text-gray-400 uppercase tracking-widest text-[10px]">
            <span>Pro Seite:</span>
-           <div className="bg-white border border-gray-100 rounded-xl px-4 py-2 text-brand-dark font-black shadow-sm">
+           <div className="bg-brand-gray flex items-center gap-2 px-4 py-2 rounded-xl text-brand-dark font-black border border-gray-100 italic opacity-80">
              40
            </div>
         </div>
@@ -233,7 +292,7 @@ export default function InventoryManager({ initialVehicles, options }: Inventory
   };
 
   return (
-    <div className="space-y-12">
+    <div className="space-y-12" id="inventory-results">
       {/* Search Header */}
       <div className="bg-white border rounded-[2rem] px-6 md:px-12 py-6 md:py-8 flex flex-col md:flex-row items-center justify-between gap-4 shadow-sm">
         <div className="text-center md:text-left">
