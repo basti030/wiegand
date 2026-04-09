@@ -1,12 +1,12 @@
-import { Shield, Eye, Lock, FileText, Globe, Server, UserCheck, MessageSquare } from "lucide-react";
-import { Metadata } from "next";
+"use client";
 
-export const metadata: Metadata = {
-  title: "Datenschutz | Autohaus Wiegand",
-  description: "Informationen zum Datenschutz und zum Umgang mit Ihren personenbezogenen Daten bei Autohaus Wiegand.",
-};
+import { Shield, Eye, Lock, FileText, Globe, Server, UserCheck, MessageSquare, Settings } from "lucide-react";
 
 export default function DatenschutzPage() {
+  const reopenConsent = () => {
+    window.dispatchEvent(new CustomEvent('reopen-cookie-banner'));
+  };
+
   return (
     <div className="bg-brand-gray min-h-screen pb-24">
       {/* Header */}
@@ -26,7 +26,15 @@ export default function DatenschutzPage() {
         <div className="max-w-4xl mx-auto space-y-8">
           
           <div className="bg-white rounded-[3rem] p-10 md:p-14 shadow-xl border border-gray-100 prose prose-sm max-w-none prose-headings:text-brand-dark prose-headings:font-black prose-p:text-gray-500 prose-p:font-bold whitespace-pre-wrap">
-            <h2 className="text-2xl font-black text-brand-dark uppercase tracking-tight mb-8">Datenschutzerklärung</h2>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12 pb-8 border-b border-gray-100">
+              <h2 className="text-2xl font-black text-brand-dark uppercase tracking-tight mb-0">Datenschutzerklärung</h2>
+              <button 
+                onClick={reopenConsent}
+                className="inline-flex items-center gap-2 bg-brand-gray hover:bg-brand-orange hover:text-white text-brand-dark transition-all px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-sm"
+              >
+                <Settings size={14} /> Cookie-Einstellungen ändern
+              </button>
+            </div>
             
             <p>
               1. Datenschutz auf einen Blick

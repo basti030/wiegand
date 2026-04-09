@@ -3,6 +3,7 @@ import "./globals.css";
 import { Phone, Mail, Clock, MessageSquare, Facebook, Instagram, MapPin, Printer, ChevronRight } from "lucide-react";
 
 import { Header } from "../components/Header";
+import { CookieConsent } from "../components/CookieConsent";
 
 export const metadata: Metadata = {
   title: "Autohaus Wiegand | Ihr Partner für SEAT, CUPRA & SKODA in Büdingen & Gelnhausen",
@@ -68,8 +69,8 @@ export default function RootLayout({
         </div>
 
         <Header />
-
         <main>{children}</main>
+        <CookieConsent />
 
         {/* WhatsApp Float */}
         <a 
@@ -121,6 +122,15 @@ export default function RootLayout({
                       </a>
                     </li>
                   ))}
+                  <li>
+                    <button 
+                      onClick={() => window.dispatchEvent(new CustomEvent('reopen-cookie-banner'))}
+                      className="text-gray-400 hover:text-brand-orange transition-all flex items-center gap-3 text-sm group text-left w-full"
+                    >
+                      <ChevronRight size={14} className="text-gray-600 group-hover:text-brand-orange transition-colors" />
+                      Cookie-Einstellungen
+                    </button>
+                  </li>
                 </ul>
               </div>
 

@@ -1,5 +1,6 @@
 import { Phone, Mail, Clock, MapPin, Printer, ChevronRight, MessageSquare, ExternalLink } from "lucide-react";
 import { Metadata } from "next";
+import { PrivacyPlaceholder } from "@/components/PrivacyPlaceholder";
 
 export const metadata: Metadata = {
   title: "Unsere Standorte | Autohaus Wiegand",
@@ -156,17 +157,23 @@ export default function StandortePage() {
               {/* Map/Image Column */}
               <div className="w-full lg:w-1/2 group">
                 <div className="relative rounded-[3rem] overflow-hidden shadow-2xl bg-brand-gray border-4 border-white aspect-video lg:aspect-square">
-                  {/* Google Map Embed */}
-                  <iframe
-                    src={loc.mapUrl}
-                    width="100%"
-                    height="100%"
-                    style={{ border: 0 }}
-                    allowFullScreen
-                    loading="lazy"
-                    title={`Standort ${loc.name}`}
-                    className="absolute inset-0 grayscale group-hover:grayscale-0 transition-all duration-1000"
-                  ></iframe>
+                  {/* Google Map Embed with Privacy Protection */}
+                  <PrivacyPlaceholder 
+                    category="marketing" 
+                    title="Google Maps" 
+                    description="Wir nutzen Google Maps, um die Standorte unserer Autohäuser visuell darzustellen."
+                  >
+                    <iframe
+                      src={loc.mapUrl}
+                      width="100%"
+                      height="100%"
+                      style={{ border: 0 }}
+                      allowFullScreen
+                      loading="lazy"
+                      title={`Standort ${loc.name}`}
+                      className="absolute inset-0 grayscale group-hover:grayscale-0 transition-all duration-1000"
+                    ></iframe>
+                  </PrivacyPlaceholder>
                   
                   {/* Glassmorphism Badge */}
                   <div className="absolute top-8 left-8 p-6 bg-white/90 backdrop-blur-xl rounded-3xl border border-white/20 shadow-xl max-w-xs">
