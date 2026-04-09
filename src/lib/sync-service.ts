@@ -106,7 +106,31 @@ export async function runVehicleSync() {
     }
     
     console.log('📥 Searching for newest data file...');
-    const files = await sftp.list('.');
+    let files: any[] = [];
+    let searchedPath = '.';
+    
+    try {
+      files = await sftp.list('.');
+      console.log(`📂 Found ${files.length} items in '.'`);
+    } catch (e) {
+      console.warn('⚠️ Could not list "." directory, trying "/"...');
+    }
+
+    // If no matching files in '.', try '/'
+    const hasWiegand = (list: any[]) => list.some(f => f.name.toLowerCase().startsWith('wiegand') && f.name.toLowerCase().endsWith('.zip'));
+
+    if (files.length === 0 || !hasWiegand(files)) {
+      try {
+        const rootFiles = await sftp.list('/');
+        console.log(`📂 Found ${rootFiles.length} items in '/'`);
+        if (hasWiegand(rootFiles)) {
+          files = rootFiles;
+          searchedPath = '/';
+        }
+      } catch (e) {
+        console.warn('⚠️ Could not list "/" directory.');
+      }
+    }
     
     // Find files starting with 'wiegand' and ending with '.zip'
     const targetFiles = files
@@ -114,15 +138,17 @@ export async function runVehicleSync() {
       .sort((a, b) => b.modifyTime - a.modifyTime); // Sort by most recent
 
     if (targetFiles.length === 0) {
-      const allFiles = files.map(f => f.name).join(', ');
-      throw new Error(`Keine Datei gefunden, die mit 'wiegand' beginnt. Verfügbare Dateien: ${allFiles}`);
+      const filePreview = files.slice(0, 15).map(f => f.name).join(', ');
+      const suffix = files.length > 15 ? '...' : '';
+      throw new Error(`Keine Datei im Pfad "${searchedPath}" gefunden (wiegand*.zip). Verfügbar (${files.length}): ${filePreview}${suffix}`);
     }
 
     const targetFilename = targetFiles[0].name;
-    console.log(`✅ Found target file: ${targetFilename}`);
+    const remotePath = searchedPath === '.' ? targetFilename : `/${targetFilename}`;
+    console.log(`✅ Found target file: ${targetFilename} in ${searchedPath}`);
 
     const zipPath = path.join(TEMP_DIR, targetFilename);
-    await sftp.fastGet(targetFilename, zipPath);
+    await sftp.fastGet(remotePath, zipPath);
     await sftp.end();
 
     // 2. Extract using system unzip
