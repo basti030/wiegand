@@ -357,7 +357,7 @@ export default function Home() {
                     >
                       <Link href={`/fahrzeuge/${topVehicle.external_id}`}>
                         <img 
-                          src={topVehicle.image || "/images/skoda-ocatvia.jpg"} 
+                          src={(topVehicle.image && topVehicle.image !== "") ? topVehicle.image : "/images/placeholder-car.jpg"} 
                           alt={topVehicle.title} 
                           className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-[2s]" 
                         />

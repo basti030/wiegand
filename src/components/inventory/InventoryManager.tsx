@@ -321,7 +321,11 @@ export default function InventoryManager({ initialVehicles, options }: Inventory
           return (
             <div key={v.id} className="bg-white rounded-[2.5rem] shadow-xl shadow-gray-200/50 border border-gray-100 hover:border-brand-orange/20 transition-all overflow-hidden group">
               <div className="relative aspect-[16/10] overflow-hidden bg-gray-100">
-                <img src={v.image} alt={v.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+                <img 
+                  src={v.image && v.image !== "" ? v.image : "/images/placeholder-car.jpg"} 
+                  alt={v.title} 
+                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
+                />
                 <div className="absolute top-8 left-8 flex flex-col gap-3">
                   <span className="px-5 py-2.5 bg-white/95 backdrop-blur-sm text-[10px] font-black uppercase tracking-widest text-brand-dark rounded-full shadow-xl">
                     {v.status}
@@ -339,6 +343,9 @@ export default function InventoryManager({ initialVehicles, options }: Inventory
                       src={`/images/${v.brand.toLowerCase()}.svg`} 
                       alt={v.brand} 
                       className="w-full h-full object-contain brightness-0"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).classList.add('hidden');
+                      }}
                     />
                   </div>
                 )}

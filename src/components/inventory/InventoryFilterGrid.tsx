@@ -23,7 +23,7 @@ export default function InventoryFilterGrid({ filters, setFilters, options, onRe
   };
 
   const filterConfigs = [
-    { key: "location", label: "Standort", options: ["Alle Standorte", "Bismark", "Stendal"] },
+    { key: "location", label: "Standort", options: ["Alle Standorte", "Büdingen", "Gelnhausen"] },
     { key: "condition", label: "Fahrzeugzustand", options: ["Alle Zustände", "NEW", "USED"], labels: { "NEW": "Neuwagen", "USED": "Gebrauchtwagen" } },
     { key: "brand", label: "Hersteller", options: ["Alle Hersteller", ...options.brands] },
     { key: "model", label: "Modell", options: ["Alle Modelle", ...options.models] },
