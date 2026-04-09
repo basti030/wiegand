@@ -105,18 +105,24 @@ export async function runVehicleSync() {
       }
     }
     
-    console.log('📥 Downloading data...');
+    console.log('📥 Searching for newest data file...');
     const files = await sftp.list('.');
-    const fileList = files.map(f => f.name).join(', ');
-    console.log('📂 Files on SFTP:', fileList);
+    
+    // Find files starting with 'wiegand' and ending with '.zip'
+    const targetFiles = files
+      .filter(f => f.name.toLowerCase().startsWith('wiegand') && f.name.toLowerCase().endsWith('.zip'))
+      .sort((a, b) => b.modifyTime - a.modifyTime); // Sort by most recent
 
-    const exists = files.some(f => f.name === SFTP_FILENAME);
-    if (!exists) {
-      throw new Error(`Datei ${SFTP_FILENAME} nicht gefunden. Verfügbare Dateien: ${fileList}`);
+    if (targetFiles.length === 0) {
+      const allFiles = files.map(f => f.name).join(', ');
+      throw new Error(`Keine Datei gefunden, die mit 'wiegand' beginnt. Verfügbare Dateien: ${allFiles}`);
     }
 
-    const zipPath = path.join(TEMP_DIR, SFTP_FILENAME);
-    await sftp.fastGet(SFTP_FILENAME, zipPath);
+    const targetFilename = targetFiles[0].name;
+    console.log(`✅ Found target file: ${targetFilename}`);
+
+    const zipPath = path.join(TEMP_DIR, targetFilename);
+    await sftp.fastGet(targetFilename, zipPath);
     await sftp.end();
 
     // 2. Extract using system unzip
