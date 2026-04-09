@@ -1,0 +1,33 @@
+import { supabase } from "@/lib/supabase";
+import InventoryManager from "@/components/inventory/InventoryManager";
+
+export const dynamic = 'force-dynamic';
+
+export default async function VehiclesPage() {
+  const { data: vehicles } = await supabase
+    .from('vehicles')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  // Extract unique options for filters
+  const extract = (key: string, data: any[]) => {
+    return Array.from(new Set(data.map(v => v.raw_data?.[key] || v[key]).filter(Boolean))).sort();
+  };
+
+  const options = {
+    brands: extract('make', vehicles || []),
+    models: extract('model', vehicles || []),
+    fuels: extract('fuel', vehicles || []),
+    gearboxes: extract('gearbox', vehicles || []),
+    categories: extract('category', vehicles || []),
+    colors: extract('exteriorColor', vehicles || [])
+  };
+
+  return (
+    <div className="bg-brand-gray min-h-screen pb-40">
+      <div className="container mx-auto px-4 py-20">
+        <InventoryManager initialVehicles={vehicles || []} options={options} />
+      </div>
+    </div>
+  );
+}
