@@ -8,6 +8,8 @@ import {
   Activity
 } from "lucide-react";
 
+import { ManualSyncButton } from "@/components/admin/ManualSyncButton";
+
 export const dynamic = 'force-dynamic';
 
 export default async function AdminDashboard() {
@@ -110,6 +112,7 @@ export default async function AdminDashboard() {
         <div className="bg-white rounded-[2.5rem] p-10 shadow-sm border border-gray-100">
           <h3 className="text-xl font-black uppercase tracking-tight mb-8">Quick Actions</h3>
           <div className="space-y-4">
+            <ManualSyncButton />
             <button className="w-full flex items-center justify-between p-5 bg-brand-dark text-white rounded-2xl hover:bg-brand-orange transition-all group shadow-xl shadow-brand-dark/10">
               <span className="font-bold text-sm">Download Report</span>
               <Car size={18} className="group-hover:translate-x-1 transition-transform" />
