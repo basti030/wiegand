@@ -25,6 +25,28 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { formatTechSpecs, getCO2Color } from "@/lib/vehicle-utils";
 import VehicleGallery from "@/components/vehicle/VehicleGallery";
+import { Metadata } from "next";
+
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params;
+  const { data: vehicle } = await supabase
+    .from('vehicles')
+    .select('*')
+    .eq('external_id', id)
+    .single();
+
+  if (!vehicle) return { title: "Fahrzeug nicht gefunden | Autohaus Wiegand" };
+
+  const ad = (vehicle.raw_data as any) || {};
+  const price = vehicle.price || "Auf Anfrage";
+  const power = ad.power ? `${Math.round(ad.power * 1.36)} PS` : "";
+  const fuel = ad.fuel === 'ELECTRICITY' ? 'Elektro' : ad.fuel === 'PETROL' ? 'Benzin' : ad.fuel || "";
+
+  return {
+    title: `${vehicle.title} | Autohaus Wiegand`,
+    description: `Jetzt den ${vehicle.title} (${power}, ${fuel}) für ${price} bei Autohaus Wiegand entdecken. Top-Ausstattung, sofort verfügbar in Büdingen oder Gelnhausen.`,
+  };
+}
 
 interface DescriptionSection {
   title: string;
