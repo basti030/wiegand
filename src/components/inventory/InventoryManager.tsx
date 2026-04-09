@@ -164,13 +164,81 @@ export default function InventoryManager({ initialVehicles, options }: Inventory
     currentPage * ITEMS_PER_PAGE
   );
 
+  const renderPagination = () => {
+    if (totalPages <= 1) return null;
+
+    return (
+      <div className="flex flex-col md:flex-row justify-between items-center bg-white p-6 md:px-10 rounded-[2.5rem] border border-gray-100 shadow-sm gap-6 font-bold text-xs">
+        <div className="text-gray-400 uppercase tracking-[0.2em] flex items-center gap-3">
+          <span className="text-brand-dark font-black text-sm">{filteredVehicles.length}</span> 
+          <span>Fahrzeuge gefunden</span>
+        </div>
+        
+        <div className="flex items-center gap-3 bg-brand-gray/50 p-2 rounded-2xl">
+          <button 
+            onClick={() => { setCurrentPage(1); window.scrollTo({ top: 300, behavior: 'smooth' }); }}
+            disabled={currentPage === 1}
+            className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all ${currentPage === 1 ? 'text-gray-300 opacity-50' : 'bg-white text-brand-dark hover:bg-brand-orange hover:text-white shadow-sm'}`}
+            title="Erste Seite"
+          >
+            <ChevronLeft size={16} />
+            <ChevronLeft size={16} className="-ml-3" />
+          </button>
+          
+          <button 
+            onClick={() => { setCurrentPage(prev => Math.max(1, prev - 1)); window.scrollTo({ top: 300, behavior: 'smooth' }); }}
+            disabled={currentPage === 1}
+            className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all ${currentPage === 1 ? 'text-gray-300 opacity-50' : 'bg-white text-brand-dark hover:bg-brand-orange hover:text-white shadow-sm'}`}
+            title="Vorherige Seite"
+          >
+            <ChevronLeft size={16} />
+          </button>
+
+          <div className="px-6 flex items-center gap-2">
+            <span className="text-gray-400 uppercase tracking-widest">Seite</span>
+            <span className="w-10 h-10 flex items-center justify-center bg-brand-orange text-white rounded-xl shadow-lg shadow-brand-orange/20">
+              {currentPage}
+            </span>
+            <span className="text-gray-400 uppercase tracking-widest text-[10px]">von {totalPages}</span>
+          </div>
+
+          <button 
+            onClick={() => { setCurrentPage(prev => Math.min(totalPages, prev + 1)); window.scrollTo({ top: 300, behavior: 'smooth' }); }}
+            disabled={currentPage === totalPages}
+            className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all ${currentPage === totalPages ? 'text-gray-300 opacity-50' : 'bg-white text-brand-dark hover:bg-brand-orange hover:text-white shadow-sm'}`}
+            title="Nächste Seite"
+          >
+            <ChevronRight size={16} />
+          </button>
+
+          <button 
+            onClick={() => { setCurrentPage(totalPages); window.scrollTo({ top: 300, behavior: 'smooth' }); }}
+            disabled={currentPage === totalPages}
+            className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all ${currentPage === totalPages ? 'text-gray-300 opacity-50' : 'bg-white text-brand-dark hover:bg-brand-orange hover:text-white shadow-sm'}`}
+            title="Letzte Seite"
+          >
+            <ChevronRight size={16} />
+            <ChevronRight size={16} className="-ml-3" />
+          </button>
+        </div>
+
+        <div className="hidden lg:flex items-center gap-4 text-gray-400 uppercase tracking-widest">
+           <span>Pro Seite:</span>
+           <div className="bg-white border border-gray-100 rounded-xl px-4 py-2 text-brand-dark font-black shadow-sm">
+             40
+           </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
-    <div className="space-y-8">
+    <div className="space-y-12">
       {/* Search Header */}
       <div className="bg-white border rounded-[2rem] px-6 md:px-12 py-6 md:py-8 flex flex-col md:flex-row items-center justify-between gap-4 shadow-sm">
         <div className="text-center md:text-left">
           <h2 className="text-2xl md:text-3xl font-black text-brand-dark uppercase tracking-tighter">Fahrzeugbestand</h2>
-          <p className="text-gray-400 font-bold text-xs">Finden Sie Ihr Traumfahrzeug aus unserem exklusiven Angebot.</p>
+          <p className="text-gray-400 font-bold text-xs uppercase tracking-widest mt-1">Exklusives Angebot von Auto Wiegand</p>
         </div>
       </div>
 
@@ -181,45 +249,9 @@ export default function InventoryManager({ initialVehicles, options }: Inventory
         onReset={resetFilters}
       />
 
-      <div className="flex flex-col md:flex-row justify-between items-center bg-gray-50/50 p-6 rounded-[2rem] border border-gray-100 mb-8 gap-6 font-bold text-xs">
-        <div className="text-gray-400 uppercase tracking-widest leading-loose">
-          <span className="text-brand-dark font-black">{filteredVehicles.length}</span> Fahrzeuge gefunden
-        </div>
-        <div className="flex flex-col sm:flex-row items-center gap-6 w-full md:w-auto">
-          <div className="flex items-center gap-2 justify-center w-full sm:w-auto">
-            <button 
-              onClick={() => setCurrentPage(1)}
-              disabled={currentPage === 1}
-              className={`w-8 h-8 flex items-center justify-center rounded-lg border font-black transition-all ${currentPage === 1 ? 'bg-gray-100 text-gray-300 border-gray-100' : 'bg-brand-orange text-white border-brand-orange hover:bg-brand-dark outline-none'}`}
-            >
-              1
-            </button>
-            <button 
-              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-              disabled={currentPage === 1}
-              className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 text-gray-400 hover:text-brand-orange hover:border-brand-orange transition-all outline-none"
-            >
-              <ChevronLeft size={16} />
-            </button>
-            <button 
-              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-              disabled={currentPage === totalPages || totalPages === 0}
-              className="w-12 h-8 flex items-center justify-center rounded-lg border border-gray-200 text-gray-400 hover:text-brand-orange hover:border-brand-orange transition-all outline-none"
-            >
-              <ChevronsRight size={16} />
-            </button>
-            <span className="ml-4 text-gray-400 uppercase">von {totalPages || 1}</span>
-          </div>
-          <div className="flex items-center gap-4 justify-center w-full sm:w-auto">
-             <span className="text-gray-400 uppercase">Pro Seite:</span>
-             <select className="bg-white border rounded-lg px-8 py-2 outline-none font-bold text-gray-600 appearance-none cursor-not-allowed opacity-80" disabled>
-               <option>40</option>
-             </select>
-          </div>
-        </div>
-      </div>
+      {renderPagination()}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-10">
         {paginatedVehicles.map((v) => {
           const ad = v.raw_data as any;
           const mileage = ad.mileage ? new Intl.NumberFormat('de-DE').format(ad.mileage) : '0';
@@ -229,7 +261,7 @@ export default function InventoryManager({ initialVehicles, options }: Inventory
 
           return (
             <div key={v.id} className="bg-white rounded-[2.5rem] shadow-xl shadow-gray-200/50 border border-gray-100 hover:border-brand-orange/20 transition-all overflow-hidden group">
-              <div className="relative aspect-[16/10] overflow-hidden">
+              <div className="relative aspect-[16/10] overflow-hidden bg-gray-100">
                 <img src={v.image} alt={v.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
                 <div className="absolute top-8 left-8 flex flex-col gap-3">
                   <span className="px-5 py-2.5 bg-white/95 backdrop-blur-sm text-[10px] font-black uppercase tracking-widest text-brand-dark rounded-full shadow-xl">
@@ -253,56 +285,56 @@ export default function InventoryManager({ initialVehicles, options }: Inventory
                 )}
               </div>
 
-              <div className="p-8">
+              <div className="p-8 md:p-10">
                 <div className="flex items-center gap-2 mb-3">
                   <span className="text-[9px] font-black uppercase tracking-[0.3em] text-brand-orange">{v.brand}</span>
                 </div>
-                <h3 className="text-2xl font-black text-brand-dark mb-6 line-clamp-1 uppercase tracking-tighter group-hover:text-brand-orange transition-colors">
+                <h3 className="text-2xl font-black text-brand-dark mb-8 line-clamp-1 uppercase tracking-tighter group-hover:text-brand-orange transition-colors">
                   {v.title}
                 </h3>
 
-                <div className="grid grid-cols-2 gap-6 mb-8">
+                <div className="grid grid-cols-2 gap-8 mb-10">
                   <div className="flex items-center gap-4 text-gray-500">
-                    <div className="w-10 h-10 rounded-xl bg-brand-gray flex items-center justify-center text-brand-dark">
-                      <Calendar size={18} />
+                    <div className="w-12 h-12 rounded-2xl bg-brand-gray flex items-center justify-center text-brand-dark shadow-sm">
+                      <Calendar size={20} />
                     </div>
                     <div>
-                      <div className="text-[8px] font-black uppercase tracking-[0.2em] text-gray-400 mb-0.5">Zulassung</div>
-                      <span className="text-[11px] font-black uppercase tracking-widest">{ad.condition === 'NEW' ? 'Neuwagen' : `EZ ${regDate}`}</span>
+                      <div className="text-[8px] font-black uppercase tracking-[0.2em] text-gray-400 mb-1">Zulassung</div>
+                      <span className="text-xs font-black uppercase tracking-widest">{ad.condition === 'NEW' ? 'Neuwagen' : `EZ ${regDate}`}</span>
                     </div>
                   </div>
                   <div className="flex items-center gap-4 text-gray-500">
-                    <div className="w-10 h-10 rounded-xl bg-brand-gray flex items-center justify-center text-brand-dark">
-                      <Gauge size={18} />
+                    <div className="w-12 h-12 rounded-2xl bg-brand-gray flex items-center justify-center text-brand-dark shadow-sm">
+                      <Gauge size={20} />
                     </div>
                     <div>
-                    <div className="text-[8px] font-black uppercase tracking-[0.2em] text-gray-400 mb-0.5">Kilometer</div>
-                      <span className="text-[11px] font-black uppercase tracking-widest">{mileage} km</span>
+                    <div className="text-[8px] font-black uppercase tracking-[0.2em] text-gray-400 mb-1">Kilometer</div>
+                      <span className="text-xs font-black uppercase tracking-widest">{mileage} km</span>
                     </div>
                   </div>
                 </div>
 
                 {/* Tech Specs Summary */}
-                <div className="bg-brand-gray/50 rounded-xl p-4 mb-8 flex items-center justify-between text-[9px] font-black uppercase tracking-widest text-gray-400">
-                   <div className="flex items-center gap-2">
-                     <Leaf size={12} className="text-green-500" />
+                <div className="bg-brand-gray/50 rounded-2xl p-5 mb-10 flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-gray-400">
+                   <div className="flex items-center gap-3">
+                     <Leaf size={14} className="text-green-500" />
                      <span>Kombiniert: {tech.consumption}</span>
                    </div>
-                   <div className="h-3 w-px bg-gray-200"></div>
+                   <div className="h-4 w-px bg-gray-200"></div>
                    <span>{tech.co2}</span>
                 </div>
 
-                <div className="flex items-center justify-between pt-8 border-t border-gray-50">
+                <div className="flex items-center justify-between pt-10 border-t border-gray-100">
                   <div>
-                    <div className="text-[9px] font-black uppercase tracking-widest text-gray-400 mb-1">Unser Preis</div>
-                    <div className="text-3xl font-black text-brand-dark tracking-tighter">{v.price}</div>
+                    <div className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Unser Preis</div>
+                    <div className="text-4xl font-black text-brand-dark tracking-tighter">{v.price}</div>
                   </div>
                   <Link 
                     href={`/fahrzeuge/${v.external_id}`} 
-                    className="w-14 h-14 bg-brand-dark text-white rounded-2xl flex items-center justify-center group-hover:bg-brand-orange transition-all shadow-xl shadow-brand-dark/10"
+                    className="w-16 h-16 bg-brand-dark text-white rounded-[1.5rem] flex items-center justify-center group-hover:bg-brand-orange transition-all shadow-xl shadow-brand-dark/10 hover:-translate-y-1"
                     title={`Details für ${v.title} ansehen`}
                   >
-                    <ArrowRight size={24} className="group-hover:translate-x-1 transition-transform" />
+                    <ArrowRight size={28} className="group-hover:translate-x-1 transition-transform" />
                   </Link>
                 </div>
               </div>
@@ -311,12 +343,14 @@ export default function InventoryManager({ initialVehicles, options }: Inventory
         })}
       </div>
 
+      {renderPagination()}
+
       {filteredVehicles.length === 0 && (
-        <div className="p-40 text-center bg-white rounded-[4rem] border border-dashed border-gray-200">
+        <div className="py-40 text-center bg-white rounded-[4rem] border border-dashed border-gray-200 shadow-inner">
            <div className="text-gray-300 font-black uppercase tracking-widest text-sm italic">
              Keine Fahrzeuge entsprechend Ihrer Filterkriterien gefunden
            </div>
-           <button onClick={resetFilters} className="mt-6 text-brand-orange font-black uppercase tracking-widest text-xs hover:underline underline-offset-8">
+           <button onClick={resetFilters} className="mt-8 text-brand-orange font-black uppercase tracking-[0.2em] text-xs hover:text-brand-dark transition-colors">
              Alle Filter zurücksetzen
            </button>
         </div>
