@@ -110,7 +110,7 @@ export async function runVehicleSync() {
     let searchedPath = '.';
     
     try {
-      const realPath = await sftp.realpath('.');
+      const realPath = await sftp.realPath('.');
       console.log(`🏠 Absolute SFTP Path: ${realPath}`);
     } catch (e) {
       console.warn('⚠️ Could not determine realpath');
