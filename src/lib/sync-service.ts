@@ -110,13 +110,20 @@ export async function runVehicleSync() {
     let searchedPath = '.';
     
     try {
-      files = await sftp.list('.');
-      console.log(`📂 Found ${files.length} items in '.'`);
+      const realPath = await sftp.realpath('.');
+      console.log(`🏠 Absolute SFTP Path: ${realPath}`);
     } catch (e) {
-      console.warn('⚠️ Could not list "." directory, trying "/"...');
+      console.warn('⚠️ Could not determine realpath');
     }
 
-    // If no matching files in '.', try '/'
+    try {
+      files = await sftp.list('.');
+      console.log(`📂 Found ${files.length} items in '.'`);
+    } catch (e: any) {
+      console.warn(`⚠️ Could not list "." directory: ${e.message}`);
+    }
+
+    // Try root if '.' is empty
     const hasWiegand = (list: any[]) => list.some(f => f.name.toLowerCase().startsWith('wiegand') && f.name.toLowerCase().endsWith('.zip'));
 
     if (files.length === 0 || !hasWiegand(files)) {
@@ -127,24 +134,51 @@ export async function runVehicleSync() {
           files = rootFiles;
           searchedPath = '/';
         }
-      } catch (e) {
-        console.warn('⚠️ Could not list "/" directory.');
+      } catch (e: any) {
+        console.warn(`⚠️ Could not list "/" directory: ${e.message}`);
       }
     }
     
+    // If STILL empty, try common subdirectories or direct check
+    if (files.length === 0 && !hasWiegand(files)) {
+       const commonDirs = ['/out', '/export', '/data', '/wiegand'];
+       for (const dir of commonDirs) {
+          try {
+             const dirFiles = await sftp.list(dir);
+             console.log(`📂 Found ${dirFiles.length} items in '${dir}'`);
+             if (hasWiegand(dirFiles)) {
+                files = dirFiles;
+                searchedPath = dir;
+                break;
+             }
+          } catch (e) {}
+       }
+    }
+
     // Find files starting with 'wiegand' and ending with '.zip'
     const targetFiles = files
       .filter(f => f.name.toLowerCase().startsWith('wiegand') && f.name.toLowerCase().endsWith('.zip'))
       .sort((a, b) => b.modifyTime - a.modifyTime); // Sort by most recent
 
     if (targetFiles.length === 0) {
+      // LAST RESORT: Check if the exact filename exists directly if listing fails
+      try {
+        const exists = await sftp.exists('wiegand-json-seller-api.zip');
+        if (exists) {
+          console.log('🎯 Found file via direct check (wiegand-json-seller-api.zip)');
+          targetFiles.push({ name: 'wiegand-json-seller-api.zip' });
+        }
+      } catch (e) {}
+    }
+
+    if (targetFiles.length === 0) {
       const filePreview = files.slice(0, 15).map(f => f.name).join(', ');
       const suffix = files.length > 15 ? '...' : '';
-      throw new Error(`Keine Datei im Pfad "${searchedPath}" gefunden (wiegand*.zip). Verfügbar (${files.length}): ${filePreview}${suffix}`);
+      throw new Error(`Keine Datei im Pfad "${searchedPath}" gefunden. Verfügbar: ${filePreview}${suffix} (Typ: ${files.length})`);
     }
 
     const targetFilename = targetFiles[0].name;
-    const remotePath = searchedPath === '.' ? targetFilename : `/${targetFilename}`;
+    const remotePath = searchedPath === '.' ? targetFilename : (searchedPath.endsWith('/') ? `${searchedPath}${targetFilename}` : `${searchedPath}/${targetFilename}`);
     console.log(`✅ Found target file: ${targetFilename} in ${searchedPath}`);
 
     const zipPath = path.join(TEMP_DIR, targetFilename);
