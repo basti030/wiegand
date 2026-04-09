@@ -1,5 +1,4 @@
 {
-  "//": "Force redeploy 1",
   "framework": "nextjs",
   "buildCommand": "next build",
   "outputDirectory": ".next",
