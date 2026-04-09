@@ -106,6 +106,15 @@ export async function runVehicleSync() {
     }
     
     console.log('📥 Downloading data...');
+    const files = await sftp.list('.');
+    const fileList = files.map(f => f.name).join(', ');
+    console.log('📂 Files on SFTP:', fileList);
+
+    const exists = files.some(f => f.name === SFTP_FILENAME);
+    if (!exists) {
+      throw new Error(`Datei ${SFTP_FILENAME} nicht gefunden. Verfügbare Dateien: ${fileList}`);
+    }
+
     const zipPath = path.join(TEMP_DIR, SFTP_FILENAME);
     await sftp.fastGet(SFTP_FILENAME, zipPath);
     await sftp.end();
