@@ -118,7 +118,7 @@ export default function Home() {
             </h1>
             
             <p className="text-xl md:text-2xl text-gray-300 mb-12 leading-relaxed max-w-xl font-medium">
-              Erleben Sie die Performance von CUPRA und die Innovation von SEAT & SKODA direkt in Bismark.
+              Erleben Sie die Performance von CUPRA und die Innovation von SEAT & SKODA direkt in Büdingen & Gelnhausen.
             </p>
             
             <div className="flex flex-wrap gap-6">
@@ -181,9 +181,9 @@ export default function Home() {
                 LEISTUNG, DIE BEGEISTERT.
               </div>
             </div>
-            <button className="text-sm font-black uppercase tracking-widest flex items-center gap-3 text-brand-orange group">
+            <Link href="/service" className="text-sm font-black uppercase tracking-widest flex items-center gap-3 text-brand-orange group">
               Alle Leistungen ansehen <ArrowRight size={18} className="group-hover:translate-x-2 transition-transform" />
-            </button>
+            </Link>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
@@ -221,9 +221,9 @@ export default function Home() {
                 <div className="p-10 flex-grow flex flex-col">
                   <h3 className="text-2xl font-black mb-4 uppercase tracking-tight">{s.title}</h3>
                   <p className="text-gray-500 leading-relaxed mb-8 flex-grow">{s.desc}</p>
-                  <a href="#" className="font-black uppercase tracking-widest text-xs flex items-center gap-2 group/link text-brand-dark hover:text-brand-orange transition-colors">
+                  <Link href="/service" className="font-black uppercase tracking-widest text-xs flex items-center gap-2 group/link text-brand-dark hover:text-brand-orange transition-colors">
                     Details lesen <ArrowRight size={14} className="group-hover/link:translate-x-1 transition-transform" />
-                  </a>
+                  </Link>
                 </div>
               </motion.div>
             ))}
@@ -240,12 +240,12 @@ export default function Home() {
               Steigen Sie ein und erleben Sie die Dynamik unserer neuesten Modelle hautnah. Unser Team findet den passenden Termin für Sie.
             </p>
             <div className="flex flex-col sm:flex-row gap-6 justify-center">
-              <a href="tel:+49393081234" className="bg-white text-brand-dark px-12 py-5 rounded-full font-black uppercase tracking-widest hover:bg-brand-orange hover:text-white transition-all shadow-2xl shadow-white/5">
-                039308 1234
+              <a href="tel:06041823380" className="bg-white text-brand-dark px-12 py-5 rounded-full font-black uppercase tracking-widest hover:bg-brand-orange hover:text-white transition-all shadow-2xl shadow-white/5">
+                06041 82338-0
               </a>
-              <a href="/kontakt" className="border-2 border-white/20 px-12 py-5 rounded-full font-black uppercase tracking-widest hover:bg-white/5 transition-all">
+              <Link href="/termin" className="border-2 border-white/20 px-12 py-5 rounded-full font-black uppercase tracking-widest hover:bg-white/5 transition-all text-center flex items-center justify-center">
                 Online Termin
-              </a>
+              </Link>
             </div>
           </div>
         </div>

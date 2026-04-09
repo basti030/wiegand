@@ -7,6 +7,28 @@ import { Header } from "../components/Header";
 export const metadata: Metadata = {
   title: "Autohaus Wiegand | Ihr Partner für SEAT, CUPRA & SKODA in Büdingen & Gelnhausen",
   description: "Entdecken Sie unsere große Auswahl an Neu- und Gebrauchtwagen sowie erstklassigen Werkstatt-Service beim Autohaus Wiegand in Büdingen und Gelnhausen.",
+  openGraph: {
+    title: "Autohaus Wiegand | Ihr Partner für SEAT, CUPRA & SKODA",
+    description: "Premium Neu- und Gebrauchtwagen in Büdingen & Gelnhausen. Entdecken Sie jetzt unsere Angebote!",
+    url: "https://www.auto-wiegand.de",
+    siteName: "Autohaus Wiegand",
+    images: [
+      {
+        url: "/images/og-image.jpg",
+        width: 1200,
+        height: 630,
+        alt: "Autohaus Wiegand Showroom",
+      },
+    ],
+    locale: "de_DE",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Autohaus Wiegand | Ihr Partner für SEAT, CUPRA & SKODA",
+    description: "Premium Neu- und Gebrauchtwagen in Büdingen & Gelnhausen.",
+    images: ["/images/og-image.jpg"],
+  },
 };
 
 export default function RootLayout({
@@ -51,7 +73,7 @@ export default function RootLayout({
 
         {/* WhatsApp Float */}
         <a 
-          href="https://wa.me/49393081234" 
+          href="https://wa.me/496041823380" 
           target="_blank" 
           rel="noopener noreferrer"
           className="fixed bottom-8 right-8 z-50 bg-[#25D366] text-white p-4 rounded-full shadow-2xl hover:scale-110 transition-transform flex items-center justify-center group"
