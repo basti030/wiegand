@@ -229,9 +229,14 @@ export async function runVehicleSync() {
     await sftp.fastGet(remotePath, zipPath);
     await sftp.end();
 
-    // 2. Extract using system unzip
+    // 2. Extract using python (zero-dependency, cloud compatible)
     console.log('📦 Extracting data...');
-    execSync(`unzip -o "${zipPath}" -d "${TEMP_DIR}"`, { stdio: 'inherit' });
+    try {
+      execSync(`python3 -m zipfile -e "${zipPath}" "${TEMP_DIR}"`, { stdio: 'inherit' });
+    } catch (e) {
+      console.warn('⚠️ Python extraction failed, falling back to system unzip...');
+      execSync(`unzip -o "${zipPath}" -d "${TEMP_DIR}"`, { stdio: 'inherit' });
+    }
 
     // 3. Parse JSON
     const jsonPath = path.join(TEMP_DIR, 'wiegand-json-seller-api.json');
