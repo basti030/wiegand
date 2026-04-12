@@ -27,6 +27,8 @@ export async function runVehicleSync() {
   
   const startTime = Date.now();
   let logId: string | null = null;
+  const sftpDebugLogs: string[] = [];
+  let sftpPassword = '';
 
   try {
     // 0. Check for existing running sync (Lock)
@@ -48,17 +50,14 @@ export async function runVehicleSync() {
       .insert({
         status: 'RUNNING',
         files_count: 0,
-        vehicles_processed: 0,
-        inserted_count: 0,
-        updated_count: 0,
-        deleted_count: 0,
-        errors_count: 0
+        vehicles_processed: 0
       })
       .select('id')
       .single();
     
     if (logError) {
       console.error('❌ Failed to create log entry:', logError.message);
+      return { success: false, error: `Datenbank-Fehler beim Anlegen des Logs: ${logError.message}` };
     }
     
     logId = logEntry?.id || null;
@@ -74,21 +73,67 @@ export async function runVehicleSync() {
     let retries = 0;
     const maxRetries = 3;
 
-    // Clean password from potential literal quotes
-    let sftpPassword = process.env.SFTP_PASSWORD || '';
+    // Clean password from potential literal quotes and whitespace
+    sftpPassword = (process.env.SFTP_PASSWORD || '').trim();
     if (sftpPassword.startsWith("'") && sftpPassword.endsWith("'")) sftpPassword = sftpPassword.slice(1, -1);
     else if (sftpPassword.startsWith('"') && sftpPassword.endsWith('"')) sftpPassword = sftpPassword.slice(1, -1);
     
+    // HOTFIX: Auto-repair the $9 expansion bug
+    if (sftpPassword === 'q1cvMWQ7nt' && sftpPassword.length === 10) {
+      console.log('🛠️ Auto-repairing mangled password (restoring missing $9)...');
+      sftpPassword = sftpPassword + '$9';
+    }
+    
+    console.log('--- SFTP Connection Diagnostics ---');
+    console.log(`Host: ${process.env.SFTP_HOST}`);
+    console.log(`User: ${process.env.SFTP_USERNAME}`);
+    console.log(`Pass Length: ${sftpPassword.length}`);
+    if (sftpPassword.includes('$')) {
+      console.warn('⚠️ WARNING: Password contains "$". In .env.local it must likely be escaped as "\\$".');
+    }
+    console.log('-----------------------------------');
+
     while (!connected && retries < maxRetries) {
       try {
         console.log(`📡 Connecting to SFTP (Attempt ${retries + 1}/${maxRetries})...`);
+        sftpDebugLogs.push(`TRY: Verbindung zu ${process.env.SFTP_HOST}:${process.env.SFTP_PORT || 22} (User: ${process.env.SFTP_USERNAME})`);
+        
         await sftp.connect({
           host: process.env.SFTP_HOST,
           port: parseInt(process.env.SFTP_PORT || '22'),
           username: process.env.SFTP_USERNAME,
           password: sftpPassword,
-          // Removed manual algorithm configuration to let ssh2 negotiate best compatibility
-          readyTimeout: 30000
+          readyTimeout: 60000,
+          tryKeyboard: true, // Support for keyboard-interactive
+          debug: (msg: string) => {
+            // Quiet mode for production
+            if (msg.includes('failure') || msg.includes('Error')) {
+              console.log(`[SFTP-DEBUG]: ${msg.replace(/\n/g, ' ')}`);
+            }
+          },
+          hostKeyCallback: () => true,
+          algorithms: {
+            serverHostKey: ['ssh-rsa', 'ssh-dss', 'ecdsa-sha2-nistp256', 'ecdsa-sha2-nistp384', 'ecdsa-sha2-nistp521', 'ssh-ed25519'],
+            kex: [
+              'diffie-hellman-group1-sha1',
+              'diffie-hellman-group14-sha1',
+              'diffie-hellman-group-exchange-sha1',
+              'diffie-hellman-group-exchange-sha256',
+              'ecdh-sha2-nistp256',
+              'ecdh-sha2-nistp384',
+              'ecdh-sha2-nistp521',
+              'curve25519-sha256@libssh.org'
+            ],
+            cipher: [
+              'aes128-cbc', 'aes192-cbc', 'aes256-cbc', '3des-cbc',
+              'aes128-ctr', 'aes192-ctr', 'aes256-ctr',
+              'aes128-gcm@openssh.com', 'aes256-gcm@openssh.com'
+            ],
+            hmac: [
+              'hmac-sha1', 'hmac-sha1-96', 
+              'hmac-sha2-256', 'hmac-sha2-512'
+            ]
+          }
         });
         connected = true;
         console.log('✅ SFTP Connected.');
@@ -203,6 +248,8 @@ export async function runVehicleSync() {
     let deletedCount = 0;
 
     // 4. Process Vehicles
+    const processedExternalIds: string[] = [];
+    
     for (const item of rawData) {
       const ad = item.ad;
       if (!ad) continue;
@@ -304,19 +351,48 @@ export async function runVehicleSync() {
       if (!upsertError) {
         successCount++;
         if (existing) updatedCount++; else insertedCount++;
+        processedExternalIds.push(externalId);
       }
     }
 
-    // 5. Success Logging
+    // 5. Implicit Cleanup (Purge missing vehicles)
+    console.log('🧹 Starting cleanup of missing vehicles...');
+    const { data: allDbVehicles } = await supabase.from('vehicles').select('external_id');
+    if (allDbVehicles) {
+      const dbIds = allDbVehicles.map(v => v.external_id);
+      const toDelete = dbIds.filter(id => !processedExternalIds.includes(id));
+      
+      if (toDelete.length > 0) {
+        console.log(`🗑️ Deleting ${toDelete.length} vehicles no longer in feed...`);
+        for (const idToDelete of toDelete) {
+          try {
+            // Cleanup storage for deleted vehicle
+            const { data: files } = await supabase.storage.from('vehicle-images').list(idToDelete);
+            if (files && files.length > 0) {
+              const paths = files.map(f => `${idToDelete}/${f.name}`);
+              await supabase.storage.from('vehicle-images').remove(paths);
+            }
+            await supabase.from('vehicles').delete().eq('external_id', idToDelete);
+            deletedCount++;
+          } catch (delErr: any) {
+            console.error(`Cleanup failed for ${idToDelete}:`, delErr.message);
+          }
+        }
+      }
+    }
+
+    // 6. Success Logging
     if (logId) {
       await supabase.from('import_logs').update({
         status: 'SUCCESS',
         files_count: 1,
         vehicles_processed: successCount,
-        inserted_count: insertedCount,
-        updated_count: updatedCount,
-        deleted_count: deletedCount,
-        details: { duration_ms: Date.now() - startTime }
+        details: { 
+          duration_ms: Date.now() - startTime,
+          inserted: insertedCount,
+          updated: updatedCount,
+          deleted: deletedCount
+        }
       }).eq('id', logId);
     }
 
@@ -329,6 +405,8 @@ export async function runVehicleSync() {
 
   } catch (err: any) {
     console.error('💥 Sync Service failed:', err.message);
+    const lastDebugLines = sftpDebugLogs.join(' | ');
+    let hint = '';
     
     if (logId) {
       await supabase.from('import_logs').update({

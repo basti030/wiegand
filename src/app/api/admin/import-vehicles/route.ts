@@ -46,9 +46,13 @@ export async function POST(req: Request) {
 
   } catch (err: any) {
     console.error('API ERROR:', err.message);
+    let hint = '';
+    if (err.message.includes('authentication') && process.env.SFTP_PASSWORD?.includes('$')) {
+      hint = ' | HINWEIS: Prüfen Sie, ob das "$" im Passwort in der .env.local mit "\\" maskiert ist (z.B. \\$).';
+    }
     return NextResponse.json({ 
       success: false,
-      message: 'Fehler beim Starten des Imports', 
+      message: `Fehler beim Starten: ${err.message}${hint}`, 
       error: err.message 
     }, { status: 500 });
   }
