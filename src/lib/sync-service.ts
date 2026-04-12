@@ -111,7 +111,6 @@ export async function runVehicleSync() {
               console.log(`[SFTP-DEBUG]: ${msg.replace(/\n/g, ' ')}`);
             }
           },
-          hostKeyCallback: () => true,
           algorithms: {
             serverHostKey: ['ssh-rsa', 'ssh-dss', 'ecdsa-sha2-nistp256', 'ecdsa-sha2-nistp384', 'ecdsa-sha2-nistp521', 'ssh-ed25519'],
             kex: [
