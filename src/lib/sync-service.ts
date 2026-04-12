@@ -252,8 +252,6 @@ export async function runVehicleSync() {
     let deletedCount = 0;
 
     // 4. Process Vehicles
-    const processedExternalIds: string[] = [];
-    
     for (const item of rawData) {
       const ad = item.ad;
       if (!ad) continue;
@@ -355,37 +353,10 @@ export async function runVehicleSync() {
       if (!upsertError) {
         successCount++;
         if (existing) updatedCount++; else insertedCount++;
-        processedExternalIds.push(externalId);
       }
     }
 
-    // 5. Implicit Cleanup (Purge missing vehicles)
-    console.log('🧹 Starting cleanup of missing vehicles...');
-    const { data: allDbVehicles } = await supabase.from('vehicles').select('external_id');
-    if (allDbVehicles) {
-      const dbIds = allDbVehicles.map(v => v.external_id);
-      const toDelete = dbIds.filter(id => !processedExternalIds.includes(id));
-      
-      if (toDelete.length > 0) {
-        console.log(`🗑️ Deleting ${toDelete.length} vehicles no longer in feed...`);
-        for (const idToDelete of toDelete) {
-          try {
-            // Cleanup storage for deleted vehicle
-            const { data: files } = await supabase.storage.from('vehicle-images').list(idToDelete);
-            if (files && files.length > 0) {
-              const paths = files.map(f => `${idToDelete}/${f.name}`);
-              await supabase.storage.from('vehicle-images').remove(paths);
-            }
-            await supabase.from('vehicles').delete().eq('external_id', idToDelete);
-            deletedCount++;
-          } catch (delErr: any) {
-            console.error(`Cleanup failed for ${idToDelete}:`, delErr.message);
-          }
-        }
-      }
-    }
-
-    // 6. Success Logging
+    // 5. Success Logging
     if (logId) {
       await supabase.from('import_logs').update({
         status: 'SUCCESS',
