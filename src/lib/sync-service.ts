@@ -2,8 +2,8 @@ import Client from 'ssh2-sftp-client';
 import { createClient } from '@supabase/supabase-js';
 import * as path from 'path';
 import * as fs from 'fs';
-import { execSync } from 'child_process';
 import * as dotenv from 'dotenv';
+import AdmZip from 'adm-zip';
 
 if (!process.env.SFTP_HOST) {
   dotenv.config({ path: '.env.local' });
@@ -229,13 +229,13 @@ export async function runVehicleSync() {
     await sftp.fastGet(remotePath, zipPath);
     await sftp.end();
 
-    // 2. Extract using python (zero-dependency, cloud compatible)
+    // 2. Extract using adm-zip (native Node.js, cloud compatible)
     console.log('📦 Extracting data...');
     try {
-      execSync(`python3 -m zipfile -e "${zipPath}" "${TEMP_DIR}"`, { stdio: 'inherit' });
-    } catch (e) {
-      console.warn('⚠️ Python extraction failed, falling back to system unzip...');
-      execSync(`unzip -o "${zipPath}" -d "${TEMP_DIR}"`, { stdio: 'inherit' });
+      const zip = new AdmZip(zipPath);
+      zip.extractAllTo(TEMP_DIR, true);
+    } catch (e: any) {
+      throw new Error(`Extraktion fehlgeschlagen: ${e.message}`);
     }
 
     // 3. Parse JSON
