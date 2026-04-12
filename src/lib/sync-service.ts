@@ -202,7 +202,12 @@ export async function runVehicleSync() {
     // Find files starting with 'wiegand' and ending with '.zip'
     const targetFiles = files
       .filter(f => f.name.toLowerCase().startsWith('wiegand') && f.name.toLowerCase().endsWith('.zip'))
-      .sort((a, b) => b.modifyTime - a.modifyTime); // Sort by most recent
+      .sort((a, b) => b.size - a.size); // Sort by LARGEST first to get the Full Extract, not a Delta
+
+    console.log('📂 Available ZIP files on server:');
+    targetFiles.forEach(f => {
+      console.log(`   - ${f.name} (Size: ${(f.size / 1024).toFixed(2)} KB, Modified: ${new Date(f.modifyTime).toISOString()})`);
+    });
 
     if (targetFiles.length === 0) {
       // LAST RESORT: Check if the exact filename exists directly if listing fails
