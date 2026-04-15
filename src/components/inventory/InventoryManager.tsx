@@ -322,7 +322,7 @@ export default function InventoryManager({ initialVehicles, options }: Inventory
             <div key={v.id} className="bg-white rounded-[2.5rem] shadow-xl shadow-gray-200/50 border border-gray-100 hover:border-brand-orange/20 transition-all overflow-hidden group">
               <div className="relative aspect-[16/10] overflow-hidden bg-gray-100">
                 <img 
-                  src={v.image && v.image !== "" ? v.image : "/images/placeholder-car.jpg"} 
+                  src={v.image && v.image !== "" ? v.image : "/images/betrieb.jpg"} 
                   alt={v.title} 
                   className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
                 />

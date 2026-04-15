@@ -129,7 +129,7 @@ export default function KarrierePage() {
           <div className="w-full lg:w-1/2">
             <div className="relative rounded-[3rem] overflow-hidden shadow-2xl border-4 border-white/5 aspect-square lg:aspect-video">
               <img 
-                src="https://www.auto-wiegand.de/media/image/header-der-betrieb.jpg" 
+                src="/images/betrieb.jpg" 
                 alt="Workshop Environment" 
                 className="w-full h-full object-cover grayscale opacity-60 hover:grayscale-0 hover:opacity-100 transition-all duration-1000"
               />

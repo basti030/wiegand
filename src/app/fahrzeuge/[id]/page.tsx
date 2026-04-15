@@ -109,7 +109,7 @@ export default async function VehicleDetail({ params }: { params: Promise<{ id: 
   
   // Fallback if no images at all
   if (galleryImages.length === 0) {
-    galleryImages = ['/images/skoda-ocatvia.jpg']; // Use an existing image as placeholder
+    galleryImages = ['/images/betrieb.jpg']; // Use an existing image as placeholder
   }
 
   const specs = [

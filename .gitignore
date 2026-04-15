@@ -41,3 +41,4 @@ test-env.ts
 
 # Vercel
 .vercel
+.npm-local/

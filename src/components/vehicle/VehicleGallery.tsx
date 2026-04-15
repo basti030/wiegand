@@ -27,11 +27,11 @@ export default function VehicleGallery({ images, title, brand }: VehicleGalleryP
         <div className="aspect-[3/2] md:aspect-[16/10] relative bg-gray-100">
           <img 
             key={images[activeIndex]}
-            src={images[activeIndex] && images[activeIndex] !== "" ? images[activeIndex] : '/images/placeholder-car.jpg'} 
+            src={images[activeIndex] && images[activeIndex] !== "" ? images[activeIndex] : '/images/betrieb.jpg'} 
             alt={`${title} - Ansicht ${activeIndex + 1}`} 
             className="w-full h-full object-cover animate-in fade-in zoom-in duration-700"
             onError={(e) => {
-              (e.target as HTMLImageElement).src = '/images/placeholder-car.jpg';
+              (e.target as HTMLImageElement).src = '/images/betrieb.jpg';
             }}
           />
           
@@ -87,11 +87,11 @@ export default function VehicleGallery({ images, title, brand }: VehicleGalleryP
             }`}
           >
             <img 
-              src={img && img !== "" ? img : '/images/placeholder-car.jpg'} 
+              src={img && img !== "" ? img : '/images/betrieb.jpg'} 
               alt={`Thumbnail ${i + 1}`} 
               className="w-full h-full object-cover" 
               onError={(e) => {
-                (e.target as HTMLImageElement).src = '/images/placeholder-car.jpg';
+                (e.target as HTMLImageElement).src = '/images/betrieb.jpg';
               }}
             />
           </button>
