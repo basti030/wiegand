@@ -426,18 +426,16 @@ export async function runVehicleSync(existingLogId?: string | number | null) {
       }
     }
 
-    // 5. Success Logging - Final Update
+    // 5. Final Success Recording
     if (logId) {
-      console.log('✅ Loop complete. Setting final status...');
+      console.log('✅ Synchronisierung beendet. Aktualisiere Status...');
       const hasChanges = insertedCount > 0 || updatedCount > 0 || deletedCount > 0;
       await supabase.from('import_logs').update({
         status: hasChanges ? 'SUCCESS' : 'UNCHANGED',
         vehicles_processed: successCount,
-        inserted_count: insertedCount,
-        updated_count: updatedCount,
-        deleted_count: deletedCount,
         details: { 
-          message: hasChanges ? 'Fahrzeugdaten erfolgreich aktualisiert.' : 'Datenbestand ist bereits aktuell.',
+          message: 'Synchronisation erfolgreich abgeschlossen.',
+          processed_info: `${successCount} von ${rawData.length} Fahrzeugen verarbeitet.`,
           duration: `${Math.round((Date.now() - startTime) / 1000)}s`
         }
       }).eq('id', logId);
@@ -446,22 +444,17 @@ export async function runVehicleSync(existingLogId?: string | number | null) {
     return {
       success: true,
       vehiclesProcessed: rawData.length,
-      vehiclesSynced: successCount,
-      imagesUploaded: imageCount
+      vehiclesSynced: successCount
     };
 
   } catch (err: any) {
     console.error('💥 Sync Service failed:', err.message);
-    const lastDebugLines = sftpDebugLogs.join(' | ');
-    let hint = '';
-    
     if (logId) {
       await supabase.from('import_logs').update({
         status: 'ERROR',
-        details: { error: err.message, duration_ms: Date.now() - startTime }
+        details: { error: err.message, message: 'Kritischer Fehler im Sync-Service.' }
       }).eq('id', logId);
     }
-
     return { success: false, error: err.message };
   } finally {
     if (fs.existsSync(TEMP_DIR)) {
