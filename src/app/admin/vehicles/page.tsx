@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { supabaseAdmin as supabase } from "@/lib/supabase-admin";
 import VehiclesTable from "@/components/admin/VehiclesTable";
 
 export const dynamic = 'force-dynamic';

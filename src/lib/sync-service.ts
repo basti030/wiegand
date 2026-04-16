@@ -368,15 +368,20 @@ export async function runVehicleSync() {
 
     // 5. Success Logging
     if (logId) {
+      const hasChanges = insertedCount > 0 || updatedCount > 0 || deletedCount > 0;
       await supabase.from('import_logs').update({
-        status: 'SUCCESS',
+        status: hasChanges ? 'SUCCESS' : 'UNCHANGED',
         files_count: 1,
         vehicles_processed: successCount,
+        inserted_count: insertedCount,
+        updated_count: updatedCount,
+        deleted_count: deletedCount,
         details: { 
           duration_ms: Date.now() - startTime,
           inserted: insertedCount,
           updated: updatedCount,
-          deleted: deletedCount
+          deleted: deletedCount,
+          message: hasChanges ? 'Fahrzeugdaten aktualisiert.' : 'Datenbestand ist bereits aktuell (keine Änderungen).'
         }
       }).eq('id', logId);
     }

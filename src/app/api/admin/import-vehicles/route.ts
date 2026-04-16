@@ -27,22 +27,17 @@ export async function POST(req: Request) {
       }, { status: 409 });
     }
 
-    // Call the sync function directly
-    const result = await runVehicleSync();
+    // Start the sync process in the background (asynchronous)
+    console.log('[API] Starting background vehicle sync...');
+    runVehicleSync().catch(err => {
+      console.error('[API] Background sync failed:', err.message);
+    });
     
-    if (result.success) {
-      return NextResponse.json({ 
-        success: true, 
-        message: "Synchronisation erfolgreich abgeschlossen.",
-        result 
-      });
-    } else {
-      return NextResponse.json({ 
-        success: false, 
-        message: `Fehler: ${result.error || 'Unbekannter Fehler während der Synchronisation.'}`,
-        error: result.error 
-      }, { status: 500 });
-    }
+    return NextResponse.json({ 
+      success: true, 
+      message: "Synchronisation gestartet. Der Prozess läuft jetzt im Hintergrund.",
+      status: 'accepted'
+    }, { status: 202 });
 
   } catch (err: any) {
     console.error('API ERROR:', err.message);
