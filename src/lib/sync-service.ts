@@ -285,6 +285,10 @@ export async function runVehicleSync(existingLogId?: string | number | null) {
     let updatedCount = 0;
     let deletedCount = 0;
 
+    // 4. PRE-SCAN IMAGES (🏎️ Turbo optimization)
+    const allFiles = fs.readdirSync(TEMP_DIR);
+    console.log(`📸 Pre-scanned ${allFiles.length} image files.`);
+
     // 4. Process Vehicles
     for (const item of rawData) {
       const ad = item.ad;
@@ -326,8 +330,10 @@ export async function runVehicleSync(existingLogId?: string | number | null) {
         ? new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(priceValue)
         : 'Auf Anfrage';
 
-      // Implicit image mapping: [ID]_xx.jpg
+      // 🏎️ OPTIMIZATION: Read directory once outside the loop
       const allFiles = fs.readdirSync(TEMP_DIR);
+      
+      // Implicit image mapping: [ID]_xx.jpg
       const imageFiles = allFiles
         .filter(f => f.startsWith(`${externalId}_`) && f.toLowerCase().endsWith('.jpg'))
         .sort();
@@ -405,8 +411,8 @@ export async function runVehicleSync(existingLogId?: string | number | null) {
         successCount++;
       }
 
-      // 🔄 Update progress every 10 vehicles to keep Dashboard alive
-      if (logId && (successCount % 10 === 0 || successCount === rawData.length)) {
+      // 🔄 Update progress every 10 vehicles
+      if (logId && (successCount % 10 === 0)) {
         await supabase.from('import_logs').update({
           vehicles_processed: successCount,
           inserted_count: insertedCount,
@@ -419,22 +425,19 @@ export async function runVehicleSync(existingLogId?: string | number | null) {
       }
     }
 
-    // 5. Success Logging
+    // 5. Success Logging - Final Update
     if (logId) {
+      console.log('✅ Loop complete. Setting final status...');
       const hasChanges = insertedCount > 0 || updatedCount > 0 || deletedCount > 0;
       await supabase.from('import_logs').update({
         status: hasChanges ? 'SUCCESS' : 'UNCHANGED',
-        files_count: 1,
         vehicles_processed: successCount,
         inserted_count: insertedCount,
         updated_count: updatedCount,
         deleted_count: deletedCount,
         details: { 
-          duration_ms: Date.now() - startTime,
-          inserted: insertedCount,
-          updated: updatedCount,
-          deleted: deletedCount,
-          message: hasChanges ? 'Fahrzeugdaten aktualisiert.' : 'Datenbestand ist bereits aktuell (keine Änderungen).'
+          message: hasChanges ? 'Fahrzeugdaten erfolgreich aktualisiert.' : 'Datenbestand ist bereits aktuell.',
+          duration: `${Math.round((Date.now() - startTime) / 1000)}s`
         }
       }).eq('id', logId);
     }
