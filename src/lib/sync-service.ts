@@ -277,9 +277,10 @@ export async function runVehicleSync(existingLogId?: string | number | null) {
       const externalId = ad.internalId?.split('/').pop() || ad.vin || Math.random().toString(36).substr(2, 9);
       
       // Explicit delete check
-      const action = (item.action || ad.action || item['@action'] || ad.status || '').toLowerCase();
+      const action = (item.action || ad.action || item['@action'] || ad.status || item.meta || ad.meta || '').toLowerCase();
       if (action === 'delete' || action === 'remove' || action === 'deleted') {
-          console.log(`Explicit delete instruction received for vehicle: ${externalId}`);
+          const source = ad.meta ? 'ad.meta' : item.meta ? 'item.meta' : ad.status ? 'ad.status' : 'other';
+          console.log(`Explicit delete instruction received via ${source} for vehicle: ${externalId}`);
           try {
               // A. Storage Cleanup
               const { data: files } = await supabase.storage.from('vehicle-images').list(externalId);
