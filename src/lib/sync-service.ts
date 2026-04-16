@@ -24,6 +24,22 @@ export async function runVehicleSync(existingLogId?: string | number | null) {
   
   const startTime = Date.now();
   let logId: string | null = existingLogId?.toString() || null;
+
+  // 🔄 Enhanced Safety: If no ID was passed, check if there's already a RUNNING log we should use
+  if (!logId) {
+    const { data: runningLog } = await supabase
+      .from('import_logs')
+      .select('id')
+      .eq('status', 'RUNNING')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+      
+    if (runningLog) {
+      logId = runningLog.id;
+      console.log(`♻️ Reusing existing RUNNING log: ${logId}`);
+    }
+  }
   const sftpDebugLogs: string[] = [];
   let sftpPassword = '';
 
@@ -351,6 +367,19 @@ export async function runVehicleSync(existingLogId?: string | number | null) {
         .eq('external_id', externalId)
         .maybeSingle();
 
+      // Extract Year/Month for EZ
+      const regValue = ad.firstRegistration || ad.registrationDate || ad.ez || '';
+      let ezValue = '';
+      if (regValue) {
+        // Format YYYYMMDD or YYYY-MM-DD
+        const cleanDate = regValue.toString().replace(/[^0-9]/g, '');
+        if (cleanDate.length === 8) {
+           ezValue = cleanDate; // Preserve YYYYMMDD
+        } else if (cleanDate.length === 6) {
+           ezValue = cleanDate + '01'; // YYYYMM -> YYYYMM01
+        }
+      }
+
       // Update Database
       const vehicleData = {
         external_id: externalId,
@@ -361,6 +390,7 @@ export async function runVehicleSync(existingLogId?: string | number | null) {
         status: 'Verfügbar',
         raw_data: {
           ...ad,
+          firstRegistration: ezValue || ad.firstRegistration, // Ensure the field used by frontend is populated
           cloud_images: allCloudUrls
         }
       };
@@ -370,8 +400,22 @@ export async function runVehicleSync(existingLogId?: string | number | null) {
         .upsert(vehicleData, { onConflict: 'external_id' });
 
       if (!upsertError) {
+        if (existing) updatedCount++;
+        else insertedCount++;
         successCount++;
-        if (existing) updatedCount++; else insertedCount++;
+      }
+
+      // 🔄 Update progress every 10 vehicles to keep Dashboard alive
+      if (logId && (successCount % 10 === 0 || successCount === rawData.length)) {
+        await supabase.from('import_logs').update({
+          vehicles_processed: successCount,
+          inserted_count: insertedCount,
+          updated_count: updatedCount,
+          details: { 
+            message: `Verarbeitung: ${successCount} von ${rawData.length} abgeschlossen...`,
+            current_vehicle: title
+          }
+        }).eq('id', logId);
       }
     }
 
