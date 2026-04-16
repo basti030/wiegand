@@ -26,6 +26,14 @@ jobs:
       - name: Install Dependencies
         run: npm install
 
+      - name: Diagnostic - Check Secrets
+        run: |
+          echo "Checking which secrets are available (values are masked):"
+          [ -n "${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}${{ secrets.SUPABASE_URL }}" ] && echo "✅ SUPABASE_URL: Found" || echo "❌ SUPABASE_URL: Missing"
+          [ -n "${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}${{ secrets.SERVICE_ROLE_KEY }}${{ secrets.SUPABASE_KEY }}" ] && echo "✅ SUPABASE_SERVICE_ROLE_KEY: Found" || echo "❌ SUPABASE_SERVICE_ROLE_KEY: Missing"
+          [ -n "${{ secrets.SFTP_HOST }}" ] && echo "✅ SFTP_HOST: Found" || echo "❌ SFTP_HOST: Missing"
+          [ -n "${{ secrets.SFTP_PASSWORD }}" ] && echo "✅ SFTP_PASSWORD: Found" || echo "❌ SFTP_PASSWORD: Missing"
+
       - name: Run Sync Script
         run: npx tsx src/scripts/run-sync.ts ${{ github.event.inputs.log_id }}
         env:
