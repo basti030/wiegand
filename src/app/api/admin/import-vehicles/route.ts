@@ -27,17 +27,51 @@ export async function POST(req: Request) {
       }, { status: 409 });
     }
 
-    // Start the sync process in the background (asynchronous)
-    console.log('[API] Starting background vehicle sync...');
-    runVehicleSync().catch(err => {
-      console.error('[API] Background sync failed:', err.message);
-    });
-    
-    return NextResponse.json({ 
-      success: true, 
-      message: "Synchronisation gestartet. Der Prozess läuft jetzt im Hintergrund.",
-      status: 'accepted'
-    }, { status: 202 });
+    // Prepare the background sync via GitHub Action
+    const githubToken = process.env.GITHUB_TOKEN;
+    const repoOwner = 'basti030';
+    const repoName = 'wiegand';
+    const workflowId = 'inventory-sync.yml';
+
+    // Create initial log entry
+    const { data: logEntry } = await supabase.from('import_logs').insert({
+      status: 'PENDING',
+      details: { message: 'Sync via GitHub Action angestoßen. Bitte warten...' }
+    }).select('id').single();
+
+    const logId = logEntry?.id;
+
+    if (githubToken) {
+      console.log('[Trigger] Sending workflow_dispatch to GitHub...');
+      const ghResponse = await fetch(
+        `https://api.github.com/repos/${repoOwner}/${repoName}/actions/workflows/${workflowId}/dispatches`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${githubToken}`,
+            'Accept': 'application/vnd.github+json',
+            'X-GitHub-Api-Version': '2022-11-28',
+          },
+          body: JSON.stringify({
+            ref: 'main',
+            inputs: { log_id: logId?.toString() }
+          }),
+        }
+      );
+
+      if (ghResponse.ok) {
+        return NextResponse.json({ 
+          success: true, 
+          message: "GitHub-Action gestartet. Der Import läuft jetzt im Hintergrund.",
+          status: 'pending',
+          logId
+        }, { status: 202 });
+      }
+    }
+
+    // Fallback if no token (keeps old behavior but adds logId)
+    runVehicleSync(logId).catch(err => console.error('BG Sync Error:', err.message));
+    return NextResponse.json({ success: true, message: 'Sync gestartet (Lokaler Modus).' }, { status: 202 });
 
   } catch (err: any) {
     console.error('API ERROR:', err.message);

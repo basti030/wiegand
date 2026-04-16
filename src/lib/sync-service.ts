@@ -14,7 +14,7 @@ import { supabaseAdmin as supabase } from './supabase-admin';
 const TEMP_DIR = process.env.VERCEL ? '/tmp/temp_sync' : path.join(process.cwd(), 'temp_sync');
 const SFTP_FILENAME = 'wiegand-json-seller-api.zip';
 
-export async function runVehicleSync() {
+export async function runVehicleSync(existingLogId?: string | number | null) {
   console.log('🚀 Starting Synchronization Service...');
   console.log('📡 SFTP Diagnostics:', {
     host: process.env.SFTP_HOST ? 'Present' : 'MISSING',
@@ -23,30 +23,38 @@ export async function runVehicleSync() {
   });
   
   const startTime = Date.now();
-  let logId: string | null = null;
+  let logId: string | null = existingLogId?.toString() || null;
   const sftpDebugLogs: string[] = [];
   let sftpPassword = '';
 
   try {
-    // 0. Create Log Entry IMMEDIATELY to provide feedback
-    const { data: logEntry, error: logInitialError } = await supabase
-      .from('import_logs')
-      .insert({
-        status: 'RUNNING',
-        files_count: 0,
-        vehicles_processed: 0,
-        details: { message: 'Synchronisation gestartet...' }
-      })
-      .select('id')
-      .single();
-    
-    if (logInitialError) {
-      console.error('❌ Failed to create initial log entry:', logInitialError.message);
-      // We continue but logId will be null
+    // 0. Create or Update Log Entry IMMEDIATELY to provide feedback
+    if (logId) {
+      // Update existing log immediately to show we started
+      await supabase
+        .from('import_logs')
+        .update({ status: 'RUNNING', details: { message: 'Verarbeitung beginnt...' } })
+        .eq('id', logId);
     } else {
-      logId = logEntry?.id || null;
-      console.log('📝 Sync Log ID:', logId);
+      const { data: logEntry, error: logInitialError } = await supabase
+        .from('import_logs')
+        .insert({
+          status: 'RUNNING',
+          files_count: 0,
+          vehicles_processed: 0,
+          details: { message: 'Synchronisation gestartet...' }
+        })
+        .select('id')
+        .single();
+      
+      if (logInitialError) {
+        console.error('❌ Failed to create initial log entry:', logInitialError.message);
+      } else {
+        logId = logEntry?.id || null;
+      }
     }
+
+    if (logId) console.log('📝 Sync Log ID:', logId);
 
     // 0. Check for existing running sync (Lock) - AFTER creating our log to show we tried
     const { data: activeSync } = await supabase
