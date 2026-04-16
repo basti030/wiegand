@@ -29,8 +29,11 @@ jobs:
       - name: Run Sync Script
         run: npx tsx src/scripts/run-sync.ts ${{ github.event.inputs.log_id }}
         env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          # Supabase fallbacks (accepts any naming convention)
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || secrets.SERVICE_ROLE_KEY || secrets.SUPABASE_KEY }}
+          
+          # SFTP fallbacks
           SFTP_HOST: ${{ secrets.SFTP_HOST }}
           SFTP_PORT: ${{ secrets.SFTP_PORT || '22' }}
           SFTP_USERNAME: ${{ secrets.SFTP_USERNAME }}
