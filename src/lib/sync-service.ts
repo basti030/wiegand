@@ -9,10 +9,7 @@ if (!process.env.SFTP_HOST) {
   dotenv.config({ path: '.env.local' });
 }
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { supabaseAdmin as supabase } from './supabase-admin';
 
 const TEMP_DIR = process.env.VERCEL ? '/tmp/temp_sync' : path.join(process.cwd(), 'temp_sync');
 const SFTP_FILENAME = 'wiegand-json-seller-api.zip';
@@ -31,40 +28,48 @@ export async function runVehicleSync() {
   let sftpPassword = '';
 
   try {
-    // 0. Check for existing running sync (Lock)
+    // 0. Create Log Entry IMMEDIATELY to provide feedback
+    const { data: logEntry, error: logInitialError } = await supabase
+      .from('import_logs')
+      .insert({
+        status: 'RUNNING',
+        files_count: 0,
+        vehicles_processed: 0,
+        details: { message: 'Synchronisation gestartet...' }
+      })
+      .select('id')
+      .single();
+    
+    if (logInitialError) {
+      console.error('❌ Failed to create initial log entry:', logInitialError.message);
+      // We continue but logId will be null
+    } else {
+      logId = logEntry?.id || null;
+      console.log('📝 Sync Log ID:', logId);
+    }
+
+    // 0. Check for existing running sync (Lock) - AFTER creating our log to show we tried
     const { data: activeSync } = await supabase
       .from('import_logs')
       .select('id, created_at')
       .eq('status', 'RUNNING')
+      .neq('id', logId || '') // Don't match our own log
       .gt('created_at', new Date(Date.now() - 30 * 60 * 1000).toISOString())
       .maybeSingle();
 
     if (activeSync) {
       console.warn('⚠️ A synchronization is already running (started at ' + activeSync.created_at + '). Skipping.');
+      if (logId) {
+        await supabase.from('import_logs').update({
+          status: 'ERROR',
+          details: { error: 'Ein anderer Import-Prozess läuft bereits.', active_log_id: activeSync.id }
+        }).eq('id', logId);
+      }
       return { success: false, error: 'Ein Import-Prozess läuft bereits.' };
     }
 
-    // 0. Create Log Entry
-    const { data: logEntry, error: logError } = await supabase
-      .from('import_logs')
-      .insert({
-        status: 'RUNNING',
-        files_count: 0,
-        vehicles_processed: 0
-      })
-      .select('id')
-      .single();
-    
-    if (logError) {
-      console.error('❌ Failed to create log entry:', logError.message);
-      return { success: false, error: `Datenbank-Fehler beim Anlegen des Logs: ${logError.message}` };
-    }
-    
-    logId = logEntry?.id || null;
-    console.log('📝 Sync Log ID:', logId);
-
     if (fs.existsSync(TEMP_DIR)) fs.rmSync(TEMP_DIR, { recursive: true, force: true });
-    fs.mkdirSync(TEMP_DIR);
+    fs.mkdirSync(TEMP_DIR, { recursive: true });
 
     const sftp = new Client();
     

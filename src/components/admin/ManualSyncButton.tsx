@@ -16,13 +16,22 @@ export function ManualSyncButton() {
     setResult(null);
 
     try {
-      const response = await fetch("/api/admin/import-vehicles", {
+      // Trigger the sync
+      const syncPromise = fetch("/api/admin/import-vehicles", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ wait: true }), // Wait for completion for better manual feedback
+        body: JSON.stringify({ wait: true }),
       });
+
+      // After 2 seconds, refresh the page data so the "RUNNING" log appears in the history
+      // even while the fetch is still pending.
+      setTimeout(() => {
+        router.refresh();
+      }, 2000);
+
+      const response = await syncPromise;
 
       const data = await response.json();
 

@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { supabaseAdmin as supabase } from "@/lib/supabase-admin";
 import { 
   Car, 
   CheckCircle2, 
@@ -17,17 +17,21 @@ export default async function AdminDashboard() {
     .from('vehicles')
     .select('*', { count: 'exact', head: true });
 
-  const { data: recentLogs } = await supabase
+  const { data: recentLogs, error: logError } = await supabase
     .from('import_logs')
     .select('*')
     .order('created_at', { ascending: false })
     .limit(5);
 
+  if (logError) {
+    console.error('DASHBOARD LOG ERROR:', logError);
+  }
+
   const stats = [
     { label: "Gesamtbestand", value: totalVehicles || 0, icon: Car, color: "text-blue-600", bg: "bg-blue-50" },
     { 
       label: "Letzter Sync", 
-      value: recentLogs?.[0]?.status === 'SUCCESS' ? "Erfolg" : recentLogs?.[0]?.status === 'RUNNING' ? "Aktiv" : "Fehler", 
+      value: recentLogs?.[0]?.status === 'SUCCESS' ? "Erfolg" : recentLogs?.[0]?.status === 'RUNNING' ? "Aktiv" : recentLogs && recentLogs.length > 0 ? "Fehler" : "Keine Logs", 
       icon: Activity, 
       color: recentLogs?.[0]?.status === 'SUCCESS' ? "text-green-600" : recentLogs?.[0]?.status === 'RUNNING' ? "text-blue-600" : "text-red-600",
       bg: recentLogs?.[0]?.status === 'SUCCESS' ? "bg-green-50" : recentLogs?.[0]?.status === 'RUNNING' ? "bg-blue-50" : "bg-red-50"
@@ -84,8 +88,12 @@ export default async function AdminDashboard() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className={`text-xs font-black uppercase tracking-widest ${log.status === 'SUCCESS' ? 'text-green-600' : 'text-red-600'}`}>
-                      {log.status}
+                    <div className={`text-xs font-black uppercase tracking-widest ${
+                      log.status === 'SUCCESS' ? 'text-green-600' : 
+                      log.status === 'RUNNING' ? 'text-blue-600 animate-pulse' : 
+                      'text-red-600'
+                    }`}>
+                      {log.status === 'RUNNING' ? 'LÄUFT...' : log.status}
                     </div>
                     <div className="text-[10px] font-bold text-gray-400">{log.details?.duration_ms}ms</div>
                     {log.status === 'ERROR' && log.details?.error && (
@@ -99,10 +107,19 @@ export default async function AdminDashboard() {
             ) : (
               <div className="flex flex-col items-center justify-center py-20 text-center">
                 <div className="w-20 h-20 bg-brand-gray rounded-full flex items-center justify-center mb-6">
-                  <Activity size={32} className="text-gray-300" />
+                  <Activity size={32} className={logError ? "text-red-300" : "text-gray-300"} />
                 </div>
-                <h4 className="text-lg font-bold text-gray-400 mb-2">Noch keine Logs vorhanden</h4>
-                <p className="text-sm text-gray-400 max-w-xs">Starten Sie den ersten Sync, um die Historie zu sehen.</p>
+                <h4 className="text-lg font-bold text-gray-400 mb-2">
+                  {logError ? "Fehler beim Laden der Logs" : "Noch keine Logs vorhanden"}
+                </h4>
+                <p className="text-sm text-gray-400 max-w-xs">
+                  {logError ? `Datenbank-Fehler: ${logError.message}` : "Starten Sie den ersten Sync, um die Historie zu sehen."}
+                </p>
+                {logError && (
+                  <div className="mt-4 p-4 bg-red-50 border border-red-100 rounded-xl text-[10px] text-red-600 font-mono">
+                    HINWEIS: Überprüfen Sie, ob die Tabelle 'import_logs' in der Datenbank existiert.
+                  </div>
+                )}
               </div>
             )}
           </div>
