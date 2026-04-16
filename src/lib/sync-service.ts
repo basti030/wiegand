@@ -317,111 +317,112 @@ export async function runVehicleSync(existingLogId?: string | number | null) {
           continue;
       }
 
-      const make = ad.make || '';
-      const model = ad.model || '';
-      let title = `${make} ${model}`.trim();
-      
-      if (!title) {
-        title = ad.title || 'Fahrzeug ohne Titel';
-      }
-      
-      const priceValue = ad.price?.consumerPriceGross;
-      const price = priceValue 
-        ? new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(priceValue)
-        : 'Auf Anfrage';
+      try {
+        if (!ad) continue;
 
-      // 🏎️ OPTIMIZATION: Read directory once outside the loop
-      const allFiles = fs.readdirSync(TEMP_DIR);
-      
-      // Implicit image mapping: [ID]_xx.jpg
-      const imageFiles = allFiles
-        .filter(f => f.startsWith(`${externalId}_`) && f.toLowerCase().endsWith('.jpg'))
-        .sort();
-      
-      let primaryImageUrl = '';
-      const allCloudUrls: string[] = [];
+        const make = ad.make || '';
+        const model = ad.model || '';
+        let title = `${make} ${model}`.trim();
+        
+        if (!title) {
+          title = ad.title || 'Fahrzeug ohne Titel';
+        }
+        
+        const priceValue = ad.price?.consumerPriceGross;
+        const price = priceValue 
+          ? new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(priceValue)
+          : 'Auf Anfrage';
 
-      for (const imgName of imageFiles) {
-        const localImgPath = path.join(TEMP_DIR, imgName);
-        if (fs.existsSync(localImgPath)) {
-          const fileBuffer = fs.readFileSync(localImgPath);
-          const cloudPath = `${externalId}/${imgName}`;
-          
-          const { error: uploadError } = await supabase.storage
-            .from('vehicle-images')
-            .upload(cloudPath, fileBuffer, {
-              contentType: 'image/jpeg',
-              upsert: true
-            });
+        // 🖼️ Image Processing
+        const imageFiles = allFiles
+          .filter(f => f.startsWith(`${externalId}_`) && f.toLowerCase().endsWith('.jpg'))
+          .sort();
+        
+        let primaryImageUrl = '';
+        const allCloudUrls: string[] = [];
 
-          if (!uploadError) {
-            const { data: { publicUrl } } = supabase.storage
-              .from('vehicle-images')
-              .getPublicUrl(cloudPath);
+        for (const imgName of imageFiles) {
+          const localImgPath = path.join(TEMP_DIR, imgName);
+          if (fs.existsSync(localImgPath)) {
+            const fileBuffer = fs.readFileSync(localImgPath);
+            const cloudPath = `${externalId}/${imgName}`;
             
-            if (!primaryImageUrl) primaryImageUrl = publicUrl;
-            allCloudUrls.push(publicUrl);
-            imageCount++;
+            const { error: uploadError } = await supabase.storage
+              .from('vehicle-images')
+              .upload(cloudPath, fileBuffer, {
+                contentType: 'image/jpeg',
+                upsert: true
+              });
+
+            if (!uploadError) {
+              const { data: { publicUrl } } = supabase.storage
+                .from('vehicle-images')
+                .getPublicUrl(cloudPath);
+              
+              if (!primaryImageUrl) primaryImageUrl = publicUrl;
+              allCloudUrls.push(publicUrl);
+              imageCount++;
+            }
           }
         }
-      }
 
-      // Check if exists for stats
-      const { data: existing } = await supabase
-        .from('vehicles')
-        .select('id')
-        .eq('external_id', externalId)
-        .maybeSingle();
+        // Check if exists for stats
+        const { data: existing } = await supabase
+          .from('vehicles')
+          .select('id')
+          .eq('external_id', externalId)
+          .maybeSingle();
 
-      // Extract Year/Month for EZ
-      const regValue = ad.firstRegistration || ad.registrationDate || ad.ez || '';
-      let ezValue = '';
-      if (regValue) {
-        // Format YYYYMMDD or YYYY-MM-DD
-        const cleanDate = regValue.toString().replace(/[^0-9]/g, '');
-        if (cleanDate.length === 8) {
-           ezValue = cleanDate; // Preserve YYYYMMDD
-        } else if (cleanDate.length === 6) {
-           ezValue = cleanDate + '01'; // YYYYMM -> YYYYMM01
+        // Extract Year/Month for EZ
+        const regValue = ad.firstRegistration || ad.registrationDate || ad.ez || '';
+        let ezValue = '';
+        if (regValue) {
+          const cleanDate = regValue.toString().replace(/[^0-9]/g, '');
+          if (cleanDate.length === 8) ezValue = cleanDate;
+          else if (cleanDate.length === 6) ezValue = cleanDate + '01';
         }
-      }
 
-      // Update Database
-      const vehicleData = {
-        external_id: externalId,
-        title: title,
-        brand: make,
-        price: price,
-        image: primaryImageUrl,
-        status: 'Verfügbar',
-        raw_data: {
-          ...ad,
-          firstRegistration: ezValue || ad.firstRegistration, // Ensure the field used by frontend is populated
-          cloud_images: allCloudUrls
-        }
-      };
-
-      const { error: upsertError } = await supabase
-        .from('vehicles')
-        .upsert(vehicleData, { onConflict: 'external_id' });
-
-      if (!upsertError) {
-        if (existing) updatedCount++;
-        else insertedCount++;
-        successCount++;
-      }
-
-      // 🔄 Update progress every 10 vehicles
-      if (logId && (successCount % 10 === 0)) {
-        await supabase.from('import_logs').update({
-          vehicles_processed: successCount,
-          inserted_count: insertedCount,
-          updated_count: updatedCount,
-          details: { 
-            message: `Verarbeitung: ${successCount} von ${rawData.length} abgeschlossen...`,
-            current_vehicle: title
+        // Save to DB
+        const vehicleData = {
+          external_id: externalId,
+          title: title,
+          brand: make,
+          price: price,
+          image: primaryImageUrl,
+          status: 'Verfügbar',
+          raw_data: {
+            ...ad,
+            firstRegistration: ezValue || ad.firstRegistration,
+            cloud_images: allCloudUrls
           }
-        }).eq('id', logId);
+        };
+
+        const { error: upsertError } = await supabase
+          .from('vehicles')
+          .upsert(vehicleData, { onConflict: 'external_id' });
+
+        if (!upsertError) {
+          if (existing) updatedCount++;
+          else insertedCount++;
+          successCount++;
+        }
+
+        // 🔄 Update progress for EVERY vehicle (Debug)
+        if (logId) {
+          await supabase.from('import_logs').update({
+            vehicles_processed: successCount,
+            inserted_count: insertedCount,
+            updated_count: updatedCount,
+            details: { 
+              message: `Verarbeitung: ${successCount} von ${rawData.length}...`,
+              current_vehicle: title
+            }
+          }).eq('id', logId);
+        }
+
+      } catch (loopError: any) {
+        console.error(`❌ Error processing vehicle ${externalId}:`, loopError.message);
+        continue;
       }
     }
 
