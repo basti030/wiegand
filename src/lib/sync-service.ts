@@ -333,10 +333,12 @@ export async function runVehicleSync(existingLogId?: string | number | null) {
       if (logId && (successCount === 0 || successCount % 10 === 0)) {
           await supabase.from('import_logs').update({
               vehicles_processed: successCount,
-              inserted_count: insertedCount,
-              updated_count: updatedCount,
-              deleted_count: deletedCount,
-              details: { message: `Verarbeite Fahrzeug ${successCount + 1} von ${vehicles.length}: ${title}` }
+              details: { 
+                message: `Verarbeite Fahrzeug ${successCount + 1} von ${vehicles.length}: ${title}`,
+                inserted: insertedCount,
+                updated: updatedCount,
+                deleted: deletedCount
+              }
           }).eq('id', logId);
       }
 
@@ -430,12 +432,12 @@ export async function runVehicleSync(existingLogId?: string | number | null) {
         if (logId && (successCount % 10 === 0 || successCount === vehicles.length)) {
           await supabase.from('import_logs').update({
             vehicles_processed: successCount,
-            inserted_count: insertedCount,
-            updated_count: updatedCount,
-            deleted_count: deletedCount,
             details: { 
               message: `Verarbeitung: ${successCount} von ${vehicles.length} Fahrzeugen...`,
-              current_vehicle: vehicleTitle
+              current_vehicle: vehicleTitle,
+              inserted: insertedCount,
+              updated: updatedCount,
+              deleted: deletedCount
             }
           }).eq('id', logId);
         }
@@ -455,15 +457,14 @@ export async function runVehicleSync(existingLogId?: string | number | null) {
       const finalPayload = {
         status: hasChanges ? 'SUCCESS' : 'UNCHANGED',
         vehicles_processed: successCount,
-        inserted_count: insertedCount,
-        updated_count: updatedCount,
-        deleted_count: deletedCount,
-        errors_count: 0,
         details: { 
           message: hasChanges ? 'Synchronisation erfolgreich abgeschlossen.' : 'Import abgeschlossen (Keine Änderungen).',
-          processed_info: `${successCount} von ${rawData.length} Fahrzeugen verarbeitet.`,
+          processed_info: `${successCount} von ${vehicles.length} Fahrzeugen verarbeitet.`,
           duration: `${Math.round(durationMs / 1000)}s`,
-          duration_ms: durationMs
+          duration_ms: durationMs,
+          inserted: insertedCount,
+          updated: updatedCount,
+          deleted: deletedCount
         }
       };
 
