@@ -39,8 +39,7 @@ export default function InventoryFilterGrid({ filters, setFilters, options, onRe
     { key: "gearbox", label: "Getriebe", options: ["Alle Getriebe", ...(options.gearboxes || [])], labels: { "AUTOMATIC_GEAR": "Automatik", "MANUAL_GEAR": "Schaltgetriebe" } },
     { key: "doors", label: "Türen", options: ["Beliebig", "2/3", "4/5"] },
     { key: "seats", label: "Anzahl Sitzplätze", options: ["Beliebig", "2", "4", "5", "7"] },
-    { key: "highlights", label: "Ausstattung", options: ["Beliebig", "Navigationssystem", "Sitzheizung", "Klimaautomatik", "LED-Scheinwerfer"] },
-    { key: "price", label: "Preis", options: ["Beliebig", "bis 20.000 €", "20.000 - 30.000 €", "30.000 - 40.000 €", "40.000 - 50.000 €", "über 50.000 €"] },
+    { key: "price", label: "Preis", options: ["Beliebig", "bis 15.000 €", "bis 20.000 €", "bis 25.000 €", "bis 35.000 €", "bis 50.000 €", "über 50.000 €"] },
   ];
 
   return (

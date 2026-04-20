@@ -322,13 +322,19 @@ export async function runVehicleSync(existingLogId?: string | number | null) {
 
         const make = ad.make || '';
         const model = ad.model || '';
-        let title = `${make} ${model}`.trim();
-        
-        if (!title) {
-          title = ad.title || 'Fahrzeug ohne Titel';
+        let title = ad.title || `${make} ${model}`.trim();
+        const priceValue = ad.price?.consumerPriceGross;
+
+        // Skip "zombie" vehicles that have no essential data
+        if (!make && !ad.title && !priceValue) {
+          console.log(`⚠️ Skipping incomplete vehicle ${externalId} (no make, title or price)`);
+          continue;
         }
         
-        const priceValue = ad.price?.consumerPriceGross;
+        if (!title || title === 'Fahrzeug ohne Titel') {
+          title = `${make} ${model}`.trim() || ad.title || 'Unbekanntes Fahrzeug';
+        }
+        
         const price = priceValue 
           ? new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(priceValue)
           : 'Auf Anfrage';

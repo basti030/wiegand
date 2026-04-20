@@ -10,7 +10,9 @@ export const metadata: Metadata = {
 
 export const dynamic = 'force-dynamic';
 
-export default async function VehiclesPage() {
+export default async function VehiclesPage({ searchParams }: { searchParams: Promise<any> }) {
+  const resolvedSearchParams = await searchParams;
+  
   const { data: vehicles } = await supabase
     .from('vehicles')
     .select('*')
@@ -33,7 +35,12 @@ export default async function VehiclesPage() {
   return (
     <div className="bg-brand-gray min-h-screen pb-40">
       <div className="container mx-auto px-4 py-20">
-        <InventoryManager initialVehicles={vehicles || []} options={options} />
+        <InventoryManager 
+          key={JSON.stringify(resolvedSearchParams)}
+          initialVehicles={vehicles || []} 
+          options={options} 
+          serverSearchParams={resolvedSearchParams}
+        />
       </div>
     </div>
   );

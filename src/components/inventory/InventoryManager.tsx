@@ -10,20 +10,24 @@ import { formatTechSpecs, getCO2Color } from "@/lib/vehicle-utils";
 interface InventoryManagerProps {
   initialVehicles: any[];
   options: any;
+  serverSearchParams?: any;
 }
 
 const ITEMS_PER_PAGE = 40;
 
-export default function InventoryManager({ initialVehicles, options }: InventoryManagerProps) {
+export default function InventoryManager({ initialVehicles, options, serverSearchParams }: InventoryManagerProps) {
   const searchParams = useSearchParams();
   const router = useRouter();
 
   // Helper to find range label for a numeric value
   const getPriceLabel = (val: number) => {
+    if (val <= 15000) return "bis 15.000 €";
     if (val <= 20000) return "bis 20.000 €";
-    if (val <= 30000) return "20.000 - 30.000 €";
-    if (val <= 40000) return "30.000 - 40.000 €";
-    if (val <= 50000) return "40.000 - 50.000 €";
+    if (val <= 25000) return "bis 25.000 €";
+    if (val <= 30000) return "bis 30.000 €";
+    if (val <= 35000) return "bis 35.000 €";
+    if (val <= 40000) return "bis 40.000 €";
+    if (val <= 50000) return "bis 50.000 €";
     return "über 50.000 €";
   };
 
@@ -32,6 +36,7 @@ export default function InventoryManager({ initialVehicles, options }: Inventory
     if (val <= 10000) return "bis 10.000 km";
     if (val <= 20000) return "bis 20.000 km";
     if (val <= 50000) return "bis 50.000 km";
+    if (val <= 100000) return "bis 100.000 km";
     return "über 50.000 km";
   };
 
@@ -39,7 +44,24 @@ export default function InventoryManager({ initialVehicles, options }: Inventory
   const [filters, setFilters] = useState<any>(() => {
     const params: any = { sort: "newest" };
     try {
-      // Initialize once from URL
+      // 1. First, use server-side params if available (fixes hydration)
+      if (serverSearchParams) {
+        Object.entries(serverSearchParams).forEach(([key, value]) => {
+          const val = Array.isArray(value) ? value[0] : value;
+          if (val) {
+            if (key === 'price' && !isNaN(Number(val))) {
+              params.price = getPriceLabel(Number(val));
+            } else if (key === 'mileage' && !isNaN(Number(val))) {
+              params.mileage = getMileageLabel(Number(val));
+            } else {
+              params[key] = val;
+            }
+          }
+        });
+        return params;
+      }
+
+      // 2. Fallback to client-side window if server params missing
       if (typeof window !== 'undefined') {
         const search = new URLSearchParams(window.location.search);
         search.forEach((value, key) => {
@@ -140,6 +162,42 @@ export default function InventoryManager({ initialVehicles, options }: Inventory
       if (filters.location && filters.location !== "Alle Standorte") {
         result = result.filter(v => String((v.raw_data as any)?.location || "").toLowerCase().includes(String(filters.location).toLowerCase()));
       }
+      if (filters.doors && filters.doors !== "Beliebig") {
+        result = result.filter(v => {
+          const d = (v.raw_data as any)?.doors || (v.raw_data as any)?.numberOfDoors;
+          const numDoors = parseInt(String(d));
+          if (isNaN(numDoors)) return false;
+          if (filters.doors === "2/3") return numDoors === 2 || numDoors === 3;
+          if (filters.doors === "4/5") return numDoors === 4 || numDoors === 5;
+          return true;
+        });
+      }
+      if (filters.seats && filters.seats !== "Beliebig") {
+        result = result.filter(v => {
+          const s = (v.raw_data as any)?.seats || (v.raw_data as any)?.numSeats;
+          return String(s) === String(filters.seats);
+        });
+      }
+      if (filters.registration && filters.registration !== "Beliebig") {
+        result = result.filter(v => {
+          const ez = String((v.raw_data as any)?.firstRegistration || "");
+          const year = ez.substring(0, 4);
+          if (filters.registration === "älter") return year && parseInt(year) < 2021;
+          return year === filters.registration;
+        });
+      }
+      if (filters.power && filters.power !== "Beliebig") {
+        result = result.filter(v => {
+          const kw = (v.raw_data as any)?.power;
+          if (!kw) return false;
+          const ps = Math.round(kw * 1.35962);
+          if (filters.power === "bis 100 PS") return ps <= 100;
+          if (filters.power === "100 - 150 PS") return ps > 100 && ps <= 150;
+          if (filters.power === "150 - 200 PS") return ps > 150 && ps <= 200;
+          if (filters.power === "über 200 PS") return ps > 200;
+          return true;
+        });
+      }
 
       // Price Filter Logic
       if (filters.price && filters.price !== "Beliebig") {
@@ -238,9 +296,41 @@ export default function InventoryManager({ initialVehicles, options }: Inventory
         } else if (key === 'color') {
           result = result.filter(v => (v.raw_data as any)?.exteriorColor === value);
         } else if (key === 'condition') {
-          result = result.filter(v => (v.raw_data as any)?.condition === value);
+        result = result.filter(v => (v.raw_data as any)?.condition === value);
         } else if (key === 'location') {
           result = result.filter(v => String((v.raw_data as any)?.location || "").toLowerCase().includes(String(value).toLowerCase()));
+        } else if (key === 'doors') {
+          result = result.filter(v => {
+            const d = (v.raw_data as any)?.doors || (v.raw_data as any)?.numberOfDoors;
+            const numDoors = parseInt(String(d));
+            if (isNaN(numDoors)) return false;
+            if (value === "2/3") return numDoors === 2 || numDoors === 3;
+            if (value === "4/5") return numDoors === 4 || numDoors === 5;
+            return true;
+          });
+        } else if (key === 'seats') {
+          result = result.filter(v => {
+            const s = (v.raw_data as any)?.seats || (v.raw_data as any)?.numSeats;
+            return String(s) === String(value);
+          });
+        } else if (key === 'registration') {
+          result = result.filter(v => {
+            const ez = String((v.raw_data as any)?.firstRegistration || "");
+            const year = ez.substring(0, 4);
+            if (value === "älter") return year && parseInt(year) < 2021;
+            return year === value;
+          });
+        } else if (key === 'power') {
+          result = result.filter(v => {
+            const kw = (v.raw_data as any)?.power;
+            if (!kw) return false;
+            const ps = Math.round(kw * 1.35962);
+            if (value === "bis 100 PS") return ps <= 100;
+            if (value === "100 - 150 PS") return ps > 100 && ps <= 150;
+            if (value === "150 - 200 PS") return ps > 150 && ps <= 200;
+            if (value === "über 200 PS") return ps > 200;
+            return true;
+          });
         } else if (key === 'price') {
           result = result.filter(v => {
             const p = (v.raw_data as any)?.price?.consumerPriceGross || 0;
@@ -444,7 +534,12 @@ export default function InventoryManager({ initialVehicles, options }: Inventory
         {paginatedVehicles.map((v) => {
           const ad = (v.raw_data as any) || {};
           const mileage = ad.mileage ? new Intl.NumberFormat('de-DE').format(ad.mileage) : '0';
-          const regDate = ad.firstRegistration ? new Date(ad.firstRegistration).getFullYear() : 'NEU';
+          const regDate = (() => {
+            if (!ad.firstRegistration) return 'NEU';
+            const s = String(ad.firstRegistration);
+            const match = s.match(/\d{4}/);
+            return match ? match[0] : 'NEU';
+          })();
 
           const tech = formatTechSpecs(ad);
 
