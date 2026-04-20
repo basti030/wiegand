@@ -192,19 +192,22 @@ export default function Home() {
                 icon: <Car size={32} />, 
                 title: "Premium Neuwagen", 
                 desc: "Entdecken Sie die neuesten technologischen Meilensteine von SEAT, CUPRA und SKODA direkt vor Ort.",
-                image: "/images/premium-neuwagen.jpg"
+                image: "/images/premium-neuwagen.jpg",
+                link: "/fahrzeuge?condition=NEW"
               },
               { 
                 icon: <Settings size={32} />, 
                 title: "Meisterwerkstatt", 
                 desc: "Zertifizierter Service nach strengsten Herstellervorgaben für maximale Langlebigkeit Ihres Fahrzeugs.",
-                image: "/images/meisterwerkstatt.jpg"
+                image: "/images/meisterwerkstatt.jpg",
+                link: "/service"
               },
               { 
                 icon: <Zap size={32} />, 
                 title: "E-Mobilität", 
                 desc: "Die Zukunft ist elektrisch. Wir beraten Sie umfassend zu Ladeinfrastruktur und E-Modellen.",
-                image: "/images/e-mobilitaet.jpg"
+                image: "/images/e-mobilitaet.jpg",
+                link: "/service"
               },
             ].map((s, i) => (
               <motion.div 
@@ -212,16 +215,16 @@ export default function Home() {
                 whileHover={{ y: -20 }}
                 className="bg-white rounded-[2rem] overflow-hidden shadow-2xl shadow-gray-200/50 flex flex-col h-full group"
               >
-                <div className="h-64 relative overflow-hidden">
+                <Link href={s.link} className="h-64 relative overflow-hidden block">
                   <img src={s.image} alt={s.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
                   <div className="absolute top-8 left-8 w-14 h-14 bg-brand-orange text-white rounded-2xl flex items-center justify-center shadow-2xl">
                     {s.icon}
                   </div>
-                </div>
+                </Link>
                 <div className="p-10 flex-grow flex flex-col">
                   <h3 className="text-2xl font-black mb-4 uppercase tracking-tight">{s.title}</h3>
                   <p className="text-gray-500 leading-relaxed mb-8 flex-grow">{s.desc}</p>
-                  <Link href="/service" className="font-black uppercase tracking-widest text-xs flex items-center gap-2 group/link text-brand-dark hover:text-brand-orange transition-colors">
+                  <Link href={s.link} className="font-black uppercase tracking-widest text-xs flex items-center gap-2 group/link text-brand-dark hover:text-brand-orange transition-colors">
                     Details lesen <ArrowRight size={14} className="group-hover/link:translate-x-1 transition-transform" />
                   </Link>
                 </div>
