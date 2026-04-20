@@ -305,6 +305,10 @@ export async function runVehicleSync(existingLogId?: string | number | null) {
       // Update status immediately for the first vehicle and then every 10
       if (logId && (successCount === 0 || successCount % 10 === 0)) {
           await supabase.from('import_logs').update({
+              vehicles_processed: successCount,
+              inserted_count: insertedCount,
+              updated_count: updatedCount,
+              deleted_count: deletedCount,
               details: { message: `Verarbeite Fahrzeug ${successCount + 1} von ${rawData.length}: ${title}` }
           }).eq('id', logId);
       }
