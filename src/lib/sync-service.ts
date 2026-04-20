@@ -308,12 +308,7 @@ export async function runVehicleSync(existingLogId?: string | number | null) {
     let updatedCount = 0;
     let deletedCount = 0;
 
-    // 4. PRE-SCAN IMAGES (🏎️ Turbo optimization)
-    const allFiles = fs.readdirSync(TEMP_DIR);
-    console.log(`📸 Pre-scanned ${allFiles.length} image files.`);
-    if (logId) await supabase.from('import_logs').update({ details: { message: `Extraktion beendet (${allFiles.length} Dateien gefunden). Starte Import...` } }).eq('id', logId);
-
-    // 4. Process Vehicles
+    // 6. Process Vehicles
     for (const item of rawData) {
       const ad = item.ad;
       if (!ad) continue;
