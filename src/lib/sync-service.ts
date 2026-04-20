@@ -413,6 +413,7 @@ export async function runVehicleSync(existingLogId?: string | number | null) {
             vehicles_processed: successCount,
             inserted_count: insertedCount,
             updated_count: updatedCount,
+            deleted_count: deletedCount,
             details: { 
               message: `Verarbeitung: ${successCount} von ${rawData.length}...`,
               current_vehicle: title
@@ -433,6 +434,9 @@ export async function runVehicleSync(existingLogId?: string | number | null) {
       await supabase.from('import_logs').update({
         status: hasChanges ? 'SUCCESS' : 'UNCHANGED',
         vehicles_processed: successCount,
+        inserted_count: insertedCount,
+        updated_count: updatedCount,
+        deleted_count: deletedCount,
         details: { 
           message: 'Synchronisation erfolgreich abgeschlossen.',
           processed_info: `${successCount} von ${rawData.length} Fahrzeugen verarbeitet.`,
