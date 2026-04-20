@@ -282,8 +282,7 @@ export async function runVehicleSync(existingLogId?: string | number | null) {
     
     const rawData = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
     console.log(`📊 Found ${rawData.length} vehicles in JSON.`);
-    if (logId) await supabase.from('import_logs').update({ details: { message: `Extraktion beendet. Starte Import von ${rawData.length} Fahrzeugen...` } }).eq('id', logId);
-
+    
     let successCount = 0;
     let imageCount = 0;
     let insertedCount = 0;
@@ -293,14 +292,22 @@ export async function runVehicleSync(existingLogId?: string | number | null) {
     // 4. PRE-SCAN IMAGES (🏎️ Turbo optimization)
     const allFiles = fs.readdirSync(TEMP_DIR);
     console.log(`📸 Pre-scanned ${allFiles.length} image files.`);
+    if (logId) await supabase.from('import_logs').update({ details: { message: `Extraktion beendet (${allFiles.length} Dateien gefunden). Starte Import...` } }).eq('id', logId);
 
     // 4. Process Vehicles
     for (const item of rawData) {
       const ad = item.ad;
       if (!ad) continue;
 
+      const title = `${ad.make || ''} ${ad.model || ''}`;
       const externalId = ad.internalId?.split('/').pop() || ad.vin || Math.random().toString(36).substr(2, 9);
       
+      // Update status immediately for the first vehicle and then every 10
+      if (logId && (successCount === 0 || successCount % 10 === 0)) {
+          await supabase.from('import_logs').update({
+              details: { message: `Verarbeite Fahrzeug ${successCount + 1} von ${rawData.length}: ${title}` }
+          }).eq('id', logId);
+      }
       // Explicit delete check
       const action = (item.action || ad.action || item['@action'] || ad.status || item.meta || ad.meta || '').toLowerCase();
       if (action === 'delete' || action === 'remove' || action === 'deleted') {
