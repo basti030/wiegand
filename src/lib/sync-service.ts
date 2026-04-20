@@ -273,20 +273,34 @@ export async function runVehicleSync(existingLogId?: string | number | null) {
     if (!fs.existsSync(TEMP_DIR)) fs.mkdirSync(TEMP_DIR, { recursive: true });
     
     try {
-      // Use native unzip for stability and speed
       const { execSync } = require('child_process');
       execSync(`unzip -q -o "${zipPath}" -d "${TEMP_DIR}"`);
     } catch (e: any) {
-      console.error('Unzip Error:', e.message);
-      throw new Error(`Extraktion fehlgeschlagen (System-Unzip): ${e.message}`);
+      throw new Error(`Extraktion fehlgeschlagen: ${e.message}`);
     }
 
-    // 3. Parse JSON
+    // 4. PRE-SCAN & INDEX IMAGES (🏎️ Turbo optimization)
+    const allFiles = fs.readdirSync(TEMP_DIR);
+    console.log(`📸 Found ${allFiles.length} files. Indexing...`);
+    if (logId) await supabase.from('import_logs').update({ details: { message: `Indexiere ${allFiles.length} Dateien für Turbo-Import...` } }).eq('id', logId);
+    
+    const imageMap = new Map<string, string[]>();
+    for (const f of allFiles) {
+      if (f.toLowerCase().endsWith('.jpg')) {
+        const idPart = f.split('_')[0];
+        if (idPart) {
+          if (!imageMap.has(idPart)) imageMap.set(idPart, []);
+          imageMap.get(idPart)!.push(f);
+        }
+      }
+    }
+
+    // 5. Parse JSON
     const jsonPath = path.join(TEMP_DIR, 'wiegand-json-seller-api.json');
     if (!fs.existsSync(jsonPath)) throw new Error('JSON file not found in ZIP');
     
     const rawData = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
-    console.log(`📊 Found ${rawData.length} vehicles in JSON.`);
+    console.log(`📊 Found ${rawData.length} vehicles in JSON. Starting processing...`);
     
     let successCount = 0;
     let imageCount = 0;
@@ -360,10 +374,8 @@ export async function runVehicleSync(existingLogId?: string | number | null) {
           ? new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(priceValue)
           : 'Auf Anfrage';
 
-        // 🖼️ Image Processing (🏎️ Parallelized for speed)
-        const imageFiles = allFiles
-          .filter(f => f.startsWith(`${externalId}_`) && f.toLowerCase().endsWith('.jpg'))
-          .sort();
+        // 🖼️ Image Processing (🏎️ Turbo lookup via Index)
+        const imageFiles = (imageMap.get(externalId) || []).sort();
         
         let primaryImageUrl = '';
         const allCloudUrls: string[] = [];
