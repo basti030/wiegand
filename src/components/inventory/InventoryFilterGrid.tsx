@@ -3,7 +3,7 @@ import { ChevronDown, RefreshCw, Filter, X } from "lucide-react";
 
 interface FilterGridProps {
   filters: any;
-  setFilters: (filters: any) => void;
+  setFilters: (key: string, value: any) => void;
   options: {
     brands: string[];
     models: string[];
@@ -11,6 +11,7 @@ interface FilterGridProps {
     gearboxes: string[];
     categories: string[];
     colors: string[];
+    conditions?: string[];
   };
   onReset: () => void;
 }
@@ -19,23 +20,23 @@ export default function InventoryFilterGrid({ filters, setFilters, options, onRe
   const [isExpanded, setIsExpanded] = useState(false);
 
   const updateFilter = (key: string, value: string) => {
-    setFilters({ ...filters, [key]: value });
+    setFilters(key, value);
   };
 
   const filterConfigs = [
     { key: "location", label: "Standort", options: ["Alle Standorte", "Büdingen", "Gelnhausen"] },
-    { key: "condition", label: "Fahrzeugzustand", options: ["Alle Zustände", "NEW", "USED"], labels: { "NEW": "Neuwagen", "USED": "Gebrauchtwagen" } },
-    { key: "brand", label: "Hersteller", options: ["Alle Hersteller", ...options.brands] },
-    { key: "model", label: "Modell", options: ["Alle Modelle", ...options.models] },
-    { key: "category", label: "Fahrzeugtyp", options: ["Alle Typen", ...options.categories], labels: { "EstateCar": "Kombi", "Limousine": "Limousine", "OffRoad": "SUV", "SmallCar": "Kleinwagen", "SportsCar": "Sportwagen", "Van": "Van" } },
+    { key: "condition", label: "Fahrzeugzustand", options: ["Alle Zustände", ...(options.conditions || ["NEW", "USED"])], labels: { "NEW": "Neuwagen", "USED": "Gebrauchtwagen" } },
+    { key: "brand", label: "Hersteller", options: ["Alle Hersteller", ...(options.brands || [])] },
+    { key: "model", label: "Modell", options: ["Alle Modelle", ...(options.models || [])] },
+    { key: "category", label: "Fahrzeugtyp", options: ["Alle Typen", ...(options.categories || [])], labels: { "EstateCar": "Kombi", "Limousine": "Limousine", "OffRoad": "SUV", "SmallCar": "Kleinwagen", "SportsCar": "Sportwagen", "Van": "Van" } },
     
     { key: "mileage", label: "Kilometerstand", options: ["Beliebig", "bis 5.000 km", "bis 10.000 km", "bis 20.000 km", "bis 50.000 km", "über 50.000 km"] },
     { key: "registration", label: "Erstzulassung", options: ["Beliebig", "2024", "2023", "2022", "2021", "älter"] },
     { key: "power", label: "Leistung (PS)", options: ["Beliebig", "bis 100 PS", "100 - 150 PS", "150 - 200 PS", "über 200 PS"] },
-    { key: "fuel", label: "Kraftstoffart", options: ["Alle Kraftstoffe", ...options.fuels], labels: { "PETROL": "Benzin", "DIESEL": "Diesel", "ELECTRICITY": "Elektro", "HYBRID": "Hybrid", "CNG": "Gas" } },
-    { key: "color", label: "Außenfarbe", options: ["Alle Farben", ...options.colors], labels: { "BLACK": "Schwarz", "BLUE": "Blau", "GREEN": "Grün", "GREY": "Grau", "ORANGE": "Orange", "RED": "Rot", "SILVER": "Silber", "WHITE": "Weiß" } },
+    { key: "fuel", label: "Kraftstoffart", options: ["Alle Kraftstoffe", ...(options.fuels || [])], labels: { "PETROL": "Benzin", "DIESEL": "Diesel", "ELECTRICITY": "Elektro", "HYBRID": "Hybrid", "CNG": "Gas" } },
+    { key: "color", label: "Außenfarbe", options: ["Alle Farben", ...(options.colors || [])], labels: { "BLACK": "Schwarz", "BLUE": "Blau", "GREEN": "Grün", "GREY": "Grau", "ORANGE": "Orange", "RED": "Rot", "SILVER": "Silber", "WHITE": "Weiß" } },
     
-    { key: "gearbox", label: "Getriebe", options: ["Alle Getriebe", ...options.gearboxes], labels: { "AUTOMATIC_GEAR": "Automatik", "MANUAL_GEAR": "Schaltgetriebe" } },
+    { key: "gearbox", label: "Getriebe", options: ["Alle Getriebe", ...(options.gearboxes || [])], labels: { "AUTOMATIC_GEAR": "Automatik", "MANUAL_GEAR": "Schaltgetriebe" } },
     { key: "doors", label: "Türen", options: ["Beliebig", "2/3", "4/5"] },
     { key: "seats", label: "Anzahl Sitzplätze", options: ["Beliebig", "2", "4", "5", "7"] },
     { key: "highlights", label: "Ausstattung", options: ["Beliebig", "Navigationssystem", "Sitzheizung", "Klimaautomatik", "LED-Scheinwerfer"] },

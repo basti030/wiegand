@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { supabase } from "@/lib/supabase";
 import InventoryManager from "@/components/inventory/InventoryManager";
 import { Metadata } from "next";

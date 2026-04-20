@@ -35,128 +35,258 @@ export default function InventoryManager({ initialVehicles, options }: Inventory
     return "über 50.000 km";
   };
 
-  // Initialize filters from URL
+  // Use local state for filters to ensure immediate and stable updates
   const [filters, setFilters] = useState<any>(() => {
     const params: any = { sort: "newest" };
-    searchParams.forEach((value, key) => {
-      if (key === 'price' && !isNaN(Number(value))) {
-        params.price = getPriceLabel(Number(value));
-      } else if (key === 'mileage' && !isNaN(Number(value))) {
-        params.mileage = getMileageLabel(Number(value));
-      } else {
-        params[key] = value;
+    try {
+      // Initialize once from URL
+      if (typeof window !== 'undefined') {
+        const search = new URLSearchParams(window.location.search);
+        search.forEach((value, key) => {
+          if (key === 'price' && !isNaN(Number(value))) {
+            params.price = getPriceLabel(Number(value));
+          } else if (key === 'mileage' && !isNaN(Number(value))) {
+            params.mileage = getMileageLabel(Number(value));
+          } else {
+            params[key] = value;
+          }
+        });
       }
-    });
+    } catch (e) {
+      console.error("Error initializing filters:", e);
+    }
     return params;
   });
 
   const [currentPage, setCurrentPage] = useState(1);
 
-  // Sync state back to URL for shareability
-  useEffect(() => {
-    const params = new URLSearchParams();
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value && value !== "Alle Hersteller" && value !== "Alle Modelle" && value !== "Beliebig" && value !== "Alle Kraftstoffe" && value !== "Alle Getriebe" && value !== "Alle Typen" && value !== "Alle Farben" && value !== "Alle Zustände") {
-        params.set(key, value as string);
+  const handleFilterChange = (key: string, value: any) => {
+    try {
+      const newFilters = { ...filters };
+      const params = new URLSearchParams(window.location.search);
+      
+      const isResetValue = value === "Alle Hersteller" || 
+                           value === "Alle Modelle" || 
+                           value === "Beliebig" || 
+                           value === "Alle Kraftstoffe" || 
+                           value === "Alle Getriebe" || 
+                           value === "Alle Typen" || 
+                           value === "Alle Farben" || 
+                           value === "Alle Zustände" ||
+                           value === "Alle Standorte";
+
+      if (isResetValue) {
+        params.delete(key);
+        delete newFilters[key];
+      } else {
+        newFilters[key] = value;
+        if (key === 'price' && typeof value === 'string' && value.includes('bis ')) {
+          params.set(key, value.replace(/[^0-9]/g, ''));
+        } else if (key === 'mileage' && typeof value === 'string' && value.includes('bis ')) {
+          params.set(key, value.replace(/[^0-9]/g, ''));
+        } else {
+          params.set(key, value);
+        }
       }
-    });
-    // Optional: Synchronize URL with active state
-    // router.replace(`/fahrzeuge${params.toString() ? `?${params.toString()}` : ''}`, { scroll: false });
-  }, [filters, router]);
+
+      // Update state for immediate UI feedback
+      setFilters(newFilters);
+      setCurrentPage(1);
+
+      // Update URL without triggering a full Next.js navigation crash
+      const queryString = params.toString();
+      const newUrl = queryString ? `/fahrzeuge?${queryString}` : '/fahrzeuge';
+      window.history.replaceState(null, '', newUrl);
+    } catch (e) {
+      console.error("handleFilterChange error:", e);
+    }
+  };
 
   const resetFilters = () => {
     setFilters({ sort: "newest" });
     setCurrentPage(1);
-    router.replace('/fahrzeuge', { scroll: false });
+    window.history.replaceState(null, '', '/fahrzeuge');
   };
 
   const filteredVehicles = useMemo(() => {
-    let result = [...initialVehicles];
+    try {
+      let result = [...initialVehicles];
 
-    // Basic filters 
-    if (filters.brand && filters.brand !== "Alle Hersteller") {
-      result = result.filter(v => 
-        v.brand?.toLowerCase() === filters.brand.toLowerCase() || 
-        (v.raw_data as any).make?.toLowerCase() === filters.brand.toLowerCase()
-      );
-    }
-    if (filters.model && filters.model !== "Alle Modelle") {
-      result = result.filter(v => (v.raw_data as any).model?.toLowerCase() === filters.model.toLowerCase());
-    }
-    if (filters.fuel && filters.fuel !== "Alle Kraftstoffe") {
-      result = result.filter(v => (v.raw_data as any).fuel === filters.fuel);
-    }
-    if (filters.gearbox && filters.gearbox !== "Alle Getriebe") {
-      result = result.filter(v => (v.raw_data as any).gearbox === filters.gearbox);
-    }
-    if (filters.category && filters.category !== "Alle Typen") {
-      result = result.filter(v => (v.raw_data as any).category === filters.category);
-    }
-    if (filters.color && filters.color !== "Alle Farben") {
-      result = result.filter(v => (v.raw_data as any).exteriorColor === filters.color);
-    }
-    if (filters.condition && filters.condition !== "Alle Zustände") {
-      result = result.filter(v => (v.raw_data as any).condition === filters.condition);
-    }
+      // Basic filters 
+      if (filters.brand && filters.brand !== "Alle Hersteller") {
+        result = result.filter(v => 
+          String(v.brand || "").toLowerCase() === String(filters.brand).toLowerCase() || 
+          String((v.raw_data as any)?.make || "").toLowerCase() === String(filters.brand).toLowerCase()
+        );
+      }
+      if (filters.model && filters.model !== "Alle Modelle") {
+        result = result.filter(v => String((v.raw_data as any)?.model || "").toLowerCase() === String(filters.model).toLowerCase());
+      }
+      if (filters.fuel && filters.fuel !== "Alle Kraftstoffe") {
+        result = result.filter(v => (v.raw_data as any)?.fuel === filters.fuel);
+      }
+      if (filters.gearbox && filters.gearbox !== "Alle Getriebe") {
+        result = result.filter(v => (v.raw_data as any)?.gearbox === filters.gearbox);
+      }
+      if (filters.category && filters.category !== "Alle Typen") {
+        result = result.filter(v => (v.raw_data as any)?.category === filters.category);
+      }
+      if (filters.color && filters.color !== "Alle Farben") {
+        result = result.filter(v => (v.raw_data as any)?.exteriorColor === filters.color);
+      }
+      if (filters.condition && filters.condition !== "Alle Zustände") {
+        result = result.filter(v => (v.raw_data as any)?.condition === filters.condition);
+      }
+      if (filters.location && filters.location !== "Alle Standorte") {
+        result = result.filter(v => String((v.raw_data as any)?.location || "").toLowerCase().includes(String(filters.location).toLowerCase()));
+      }
 
-    // Price Filter Logic
-    if (filters.price && filters.price !== "Beliebig") {
-      result = result.filter(v => {
-        const p = (v.raw_data as any).price?.consumerPriceGross || 0;
-        const filterPrice = filters.price;
-        
-        if (typeof filterPrice === 'string') {
-          if (filterPrice.includes('bis 15.000')) return p <= 15000;
-          if (filterPrice.includes('bis 20.000')) return p <= 20000;
-          if (filterPrice.includes('bis 25.000')) return p <= 25000;
-          if (filterPrice.includes('bis 30.000')) return p <= 30000;
-          if (filterPrice.includes('bis 35.000')) return p <= 35000;
-          if (filterPrice.includes('bis 40.000')) return p <= 40000;
-          if (filterPrice.includes('bis 50.000')) return p <= 50000;
-          if (filterPrice.includes('20.000 - 30.000')) return p > 20000 && p <= 30000;
-          if (filterPrice.includes('30.000 - 40.000')) return p > 30000 && p <= 40000;
-          if (filterPrice.includes('40.000 - 50.000')) return p > 40000 && p <= 50000;
-          if (filterPrice === "über 50.000 €") return p > 50000;
+      // Price Filter Logic
+      if (filters.price && filters.price !== "Beliebig") {
+        result = result.filter(v => {
+          const p = (v.raw_data as any)?.price?.consumerPriceGross || 0;
+          const filterPrice = filters.price;
+          
+          if (typeof filterPrice === 'string') {
+            if (filterPrice.includes('bis 15.000')) return p <= 15000;
+            if (filterPrice.includes('bis 20.000')) return p <= 20000;
+            if (filterPrice.includes('bis 25.000')) return p <= 25000;
+            if (filterPrice.includes('bis 30.000')) return p <= 30000;
+            if (filterPrice.includes('bis 35.000')) return p <= 35000;
+            if (filterPrice.includes('bis 40.000')) return p <= 40000;
+            if (filterPrice.includes('bis 50.000')) return p <= 50000;
+            if (filterPrice.includes('20.000 - 30.000')) return p > 20000 && p <= 30000;
+            if (filterPrice.includes('30.000 - 40.000')) return p > 30000 && p <= 40000;
+            if (filterPrice.includes('40.000 - 50.000')) return p > 40000 && p <= 50000;
+            if (filterPrice === "über 50.000 €") return p > 50000;
+          }
+          if (!isNaN(Number(filterPrice))) return p <= Number(filterPrice);
+          return true;
+        });
+      }
+
+      // Mileage Filter Logic
+      if (filters.mileage && filters.mileage !== "Beliebig") {
+        result = result.filter(v => {
+          const m = (v.raw_data as any)?.mileage || 0;
+          const fm = filters.mileage;
+          if (typeof fm === 'string') {
+            if (fm.includes('bis 5.000')) return m <= 5000;
+            if (fm.includes('bis 10.000')) return m <= 10000;
+            if (fm.includes('bis 20.000')) return m <= 20000;
+            if (fm.includes('bis 50.000')) return m <= 50000;
+            if (fm.includes('bis 100.000')) return m <= 100000;
+            if (fm === "über 50.000 km") return m > 50000;
+          }
+          if (!isNaN(Number(fm))) return m <= Number(fm);
+          return true;
+        });
+      }
+
+      // Sorting
+      result.sort((a, b) => {
+        try {
+          if (filters.sort === "price_asc") {
+            return ((a.raw_data as any)?.price?.consumerPriceGross || 0) - ((b.raw_data as any)?.price?.consumerPriceGross || 0);
+          }
+          if (filters.sort === "price_desc") {
+            return ((b.raw_data as any)?.price?.consumerPriceGross || 0) - ((a.raw_data as any)?.price?.consumerPriceGross || 0);
+          }
+          if (filters.sort === "mileage_asc") {
+            return ((a.raw_data as any)?.mileage || 0) - ((b.raw_data as any)?.mileage || 0);
+          }
+          const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+          const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+          return (isNaN(dateB) ? 0 : dateB) - (isNaN(dateA) ? 0 : dateA);
+        } catch (e) {
+          return 0;
         }
-        if (!isNaN(Number(filterPrice))) return p <= Number(filterPrice);
-        return true;
       });
+
+      return result;
+    } catch (e) {
+      console.error("Error in filteredVehicles useMemo:", e);
+      return [];
     }
-
-    // Mileage Filter Logic
-    if (filters.mileage && filters.mileage !== "Beliebig") {
-      result = result.filter(v => {
-        const m = (v.raw_data as any).mileage || 0;
-        const fm = filters.mileage;
-        if (typeof fm === 'string') {
-          if (fm.includes('bis 5.000')) return m <= 5000;
-          if (fm.includes('bis 10.000')) return m <= 10000;
-          if (fm.includes('bis 20.000')) return m <= 20000;
-          if (fm.includes('bis 50.000')) return m <= 50000;
-          if (fm.includes('bis 100.000')) return m <= 100000;
-          if (fm === "über 50.000 km") return m > 50000;
-        }
-        if (!isNaN(Number(fm))) return m <= Number(fm);
-        return true;
-      });
-    }
-
-    // Sorting
-    result.sort((a, b) => {
-      if (filters.sort === "price_asc") {
-        return ((a.raw_data as any).price?.consumerPriceGross || 0) - ((b.raw_data as any).price?.consumerPriceGross || 0);
-      }
-      if (filters.sort === "price_desc") {
-        return ((b.raw_data as any).price?.consumerPriceGross || 0) - ((a.raw_data as any).price?.consumerPriceGross || 0);
-      }
-      if (filters.sort === "mileage_asc") {
-        return ((a.raw_data as any).mileage || 0) - ((b.raw_data as any).mileage || 0);
-      }
-      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-    });
-
-    return result;
   }, [filters, initialVehicles]);
+
+  // DYNAMIC OPTIONS: Faceted Search logic
+  // Options for a filter X are calculated by applying all filters EXCEPT filter X.
+  // This fulfills the user request: "wenn die Option nicht mehr vorhanden ist diese gar nicht zur Auswahl steht"
+  const dynamicOptions = useMemo(() => {
+    const extract = (key: string, data: any[]) => {
+      if (!Array.isArray(data)) return [];
+      return Array.from(new Set(data.filter(v => !!v).map(v => (v.raw_data as any)?.[key] || v[key]).filter(Boolean))).sort() as string[];
+    };
+
+    const applyFilters = (vehicles: any[], currentFilters: any, excludeKey?: string) => {
+      let result = [...vehicles];
+      Object.entries(currentFilters).forEach(([key, value]) => {
+        if (key === excludeKey || key === 'sort') return;
+        if (!value || value === "Alle Hersteller" || value === "Alle Modelle" || value === "Beliebig" || value === "Alle Kraftstoffe" || value === "Alle Getriebe" || value === "Alle Typen" || value === "Alle Farben" || value === "Alle Zustände" || value === "Alle Standorte") return;
+
+        if (key === 'brand') {
+          result = result.filter(v => String(v.brand || "").toLowerCase() === String(value).toLowerCase() || String((v.raw_data as any)?.make || "").toLowerCase() === String(value).toLowerCase());
+        } else if (key === 'model') {
+          result = result.filter(v => String((v.raw_data as any)?.model || "").toLowerCase() === String(value).toLowerCase());
+        } else if (key === 'fuel') {
+          result = result.filter(v => (v.raw_data as any)?.fuel === value);
+        } else if (key === 'gearbox') {
+          result = result.filter(v => (v.raw_data as any)?.gearbox === value);
+        } else if (key === 'category') {
+          result = result.filter(v => (v.raw_data as any)?.category === value);
+        } else if (key === 'color') {
+          result = result.filter(v => (v.raw_data as any)?.exteriorColor === value);
+        } else if (key === 'condition') {
+          result = result.filter(v => (v.raw_data as any)?.condition === value);
+        } else if (key === 'location') {
+          result = result.filter(v => String((v.raw_data as any)?.location || "").toLowerCase().includes(String(value).toLowerCase()));
+        } else if (key === 'price') {
+          result = result.filter(v => {
+            const p = (v.raw_data as any)?.price?.consumerPriceGross || 0;
+            if (typeof value === 'string') {
+               if (value.includes('bis 15.000')) return p <= 15000;
+               if (value.includes('bis 20.000')) return p <= 20000;
+               if (value.includes('bis 25.000')) return p <= 25000;
+               if (value.includes('bis 30.000')) return p <= 30000;
+               if (value.includes('bis 35.000')) return p <= 35000;
+               if (value.includes('bis 40.000')) return p <= 40000;
+               if (value.includes('bis 50.000')) return p <= 50000;
+               if (value.includes('20.000 - 30.000')) return p > 20000 && p <= 30000;
+               if (value.includes('30.000 - 40.000')) return p > 30000 && p <= 40000;
+               if (value.includes('40.000 - 50.000')) return p > 40000 && p <= 50000;
+               if (value === "über 50.000 €") return p > 50000;
+            }
+            return true;
+          });
+        } else if (key === 'mileage') {
+          result = result.filter(v => {
+            const m = (v.raw_data as any)?.mileage || 0;
+            if (typeof value === 'string') {
+               if (value.includes('bis 5.000')) return m <= 5000;
+               if (value.includes('bis 10.000')) return m <= 10000;
+               if (value.includes('bis 20.000')) return m <= 20000;
+               if (value.includes('bis 50.000')) return m <= 50000;
+               if (value.includes('bis 100.000')) return m <= 100000;
+               if (value === "über 50.000 km") return m > 50000;
+            }
+            return true;
+          });
+        }
+      });
+      return result;
+    };
+
+    return {
+      brands: extract('make', applyFilters(initialVehicles, filters, 'brand')),
+      models: extract('model', applyFilters(initialVehicles, filters, 'model')),
+      fuels: extract('fuel', applyFilters(initialVehicles, filters, 'fuel')),
+      gearboxes: extract('gearbox', applyFilters(initialVehicles, filters, 'gearbox')),
+      categories: extract('category', applyFilters(initialVehicles, filters, 'category')),
+      colors: extract('exteriorColor', applyFilters(initialVehicles, filters, 'color')),
+      conditions: extract('condition', applyFilters(initialVehicles, filters, 'condition'))
+    };
+  }, [initialVehicles, filters]);
 
   const totalPages = Math.ceil(filteredVehicles.length / ITEMS_PER_PAGE);
   const paginatedVehicles = filteredVehicles.slice(
@@ -303,8 +433,8 @@ export default function InventoryManager({ initialVehicles, options }: Inventory
 
       <InventoryFilterGrid 
         filters={filters} 
-        setFilters={setFilters} 
-        options={options} 
+        setFilters={handleFilterChange} 
+        options={dynamicOptions} 
         onReset={resetFilters}
       />
 
@@ -312,7 +442,7 @@ export default function InventoryManager({ initialVehicles, options }: Inventory
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-10">
         {paginatedVehicles.map((v) => {
-          const ad = v.raw_data as any;
+          const ad = (v.raw_data as any) || {};
           const mileage = ad.mileage ? new Intl.NumberFormat('de-DE').format(ad.mileage) : '0';
           const regDate = ad.firstRegistration ? new Date(ad.firstRegistration).getFullYear() : 'NEU';
 
