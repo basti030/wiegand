@@ -301,7 +301,8 @@ export async function runVehicleSync(existingLogId?: string | number | null) {
     
     const rawData = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
     console.log(`📊 Found ${rawData.length} vehicles in JSON. Starting processing...`);
-    
+    if (logId) await supabase.from('import_logs').update({ details: { message: `Starte Verarbeitung von ${rawData.length} Fahrzeugen...` } }).eq('id', logId);
+
     let successCount = 0;
     let imageCount = 0;
     let insertedCount = 0;
@@ -310,12 +311,14 @@ export async function runVehicleSync(existingLogId?: string | number | null) {
 
     // 6. Process Vehicles
     for (const item of rawData) {
-      const ad = item.ad;
-      if (!ad) continue;
+      // Support both { ad: {...} } and direct {...} structure
+      const ad = item.ad || item;
+      if (!ad || (!ad.internalId && !ad.id && !ad.vin)) continue;
 
-      const title = `${ad.make || ''} ${ad.model || ''}`;
-      const externalId = ad.internalId?.split('/').pop() || ad.vin || Math.random().toString(36).substr(2, 9);
+      const title = `${ad.make || ad.brand || ''} ${ad.model || ''}`.trim() || 'Unbekanntes Fahrzeug';
+      const externalId = (ad.internalId?.split('/').pop() || ad.id || ad.vin || '').toString();
       
+      if (!externalId) continue;
       // Update status immediately for the first vehicle and then every 10
       if (logId && (successCount === 0 || successCount % 10 === 0)) {
           await supabase.from('import_logs').update({
