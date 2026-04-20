@@ -49,7 +49,7 @@ export async function runVehicleSync(existingLogId?: string | number | null) {
       // Update existing log immediately to show we started
       await supabase
         .from('import_logs')
-        .update({ status: 'RUNNING', details: { message: 'Verarbeitung beginnt...' } })
+        .update({ status: 'RUNNING', details: { message: 'Initialisierung...' } })
         .eq('id', logId);
     } else {
       const { data: logEntry, error: logInitialError } = await supabase
@@ -58,7 +58,7 @@ export async function runVehicleSync(existingLogId?: string | number | null) {
           status: 'RUNNING',
           files_count: 0,
           vehicles_processed: 0,
-          details: { message: 'Synchronisation gestartet...' }
+          details: { message: 'Initialisierung...' }
         })
         .select('id')
         .single();
@@ -125,6 +125,8 @@ export async function runVehicleSync(existingLogId?: string | number | null) {
     while (!connected && retries < maxRetries) {
       try {
         console.log(`📡 Connecting to SFTP (Attempt ${retries + 1}/${maxRetries})...`);
+        if (logId) await supabase.from('import_logs').update({ details: { message: `Verbindung zum SFTP (Versuch ${retries + 1})...` } }).eq('id', logId);
+        
         sftpDebugLogs.push(`TRY: Verbindung zu ${process.env.SFTP_HOST}:${process.env.SFTP_PORT || 22} (User: ${process.env.SFTP_USERNAME})`);
         
         await sftp.connect({
@@ -260,11 +262,13 @@ export async function runVehicleSync(existingLogId?: string | number | null) {
     console.log(`✅ Found target file: ${targetFilename} in ${searchedPath}`);
 
     const zipPath = path.join(TEMP_DIR, targetFilename);
+    if (logId) await supabase.from('import_logs').update({ details: { message: `Lade Datei herunter: ${targetFilename}...` } }).eq('id', logId);
     await sftp.fastGet(remotePath, zipPath);
     await sftp.end();
 
     // 2. Extract using adm-zip (native Node.js, cloud compatible)
     console.log('📦 Extracting data...');
+    if (logId) await supabase.from('import_logs').update({ details: { message: 'Entpacke Daten...' } }).eq('id', logId);
     try {
       const zip = new AdmZip(zipPath);
       zip.extractAllTo(TEMP_DIR, true);
@@ -413,8 +417,8 @@ export async function runVehicleSync(existingLogId?: string | number | null) {
           successCount++;
         }
 
-        // 🔄 Update progress for EVERY vehicle (Debug)
-        if (logId) {
+        // 🔄 Update progress every 20 vehicles to reduce DB load
+        if (logId && (successCount % 20 === 0 || successCount === rawData.length)) {
           await supabase.from('import_logs').update({
             vehicles_processed: successCount,
             inserted_count: insertedCount,
@@ -437,6 +441,8 @@ export async function runVehicleSync(existingLogId?: string | number | null) {
     if (logId) {
       console.log('✅ Synchronisierung beendet. Aktualisiere Status...');
       const hasChanges = insertedCount > 0 || updatedCount > 0 || deletedCount > 0;
+      const durationMs = Date.now() - startTime;
+      
       await supabase.from('import_logs').update({
         status: hasChanges ? 'SUCCESS' : 'UNCHANGED',
         vehicles_processed: successCount,
@@ -444,9 +450,10 @@ export async function runVehicleSync(existingLogId?: string | number | null) {
         updated_count: updatedCount,
         deleted_count: deletedCount,
         details: { 
-          message: 'Synchronisation erfolgreich abgeschlossen.',
+          message: hasChanges ? 'Synchronisation erfolgreich abgeschlossen.' : 'Synchronisation abgeschlossen (Keine Änderungen).',
           processed_info: `${successCount} von ${rawData.length} Fahrzeugen verarbeitet.`,
-          duration: `${Math.round((Date.now() - startTime) / 1000)}s`
+          duration: `${Math.round(durationMs / 1000)}s`,
+          duration_ms: durationMs
         }
       }).eq('id', logId);
     }
