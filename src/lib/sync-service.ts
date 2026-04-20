@@ -300,8 +300,17 @@ export async function runVehicleSync(existingLogId?: string | number | null) {
     if (!fs.existsSync(jsonPath)) throw new Error('JSON file not found in ZIP');
     
     const rawData = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
-    console.log(`📊 Found ${rawData.length} vehicles in JSON. Starting processing...`);
-    if (logId) await supabase.from('import_logs').update({ details: { message: `Starte Verarbeitung von ${rawData.length} Fahrzeugen...` } }).eq('id', logId);
+    
+    // Turbo-tolerance: Find the array of vehicles wherever it is
+    let vehicles = Array.isArray(rawData) ? rawData : (rawData.vehicles || rawData.ads || rawData.data || rawData.items || []);
+    if (!Array.isArray(vehicles) && typeof rawData === 'object') {
+      // Last resort: find any property that is an array
+      const possibleArray = Object.values(rawData).find(v => Array.isArray(v));
+      if (possibleArray) vehicles = possibleArray as any[];
+    }
+
+    console.log(`📊 Found ${vehicles.length} vehicles in JSON structure.`);
+    if (logId) await supabase.from('import_logs').update({ details: { message: `Starte Verarbeitung von ${vehicles.length} Fahrzeugen...` } }).eq('id', logId);
 
     let successCount = 0;
     let imageCount = 0;
@@ -310,15 +319,17 @@ export async function runVehicleSync(existingLogId?: string | number | null) {
     let deletedCount = 0;
 
     // 6. Process Vehicles
-    for (const item of rawData) {
-      // Support both { ad: {...} } and direct {...} structure
-      const ad = item.ad || item;
-      if (!ad || (!ad.internalId && !ad.id && !ad.vin)) continue;
+    for (const item of vehicles) {
+      try {
+        // Support both { ad: {...} } and direct {...} structure
+        const ad = item.ad || item;
+        if (!ad || typeof ad !== 'object') continue;
+        if (!ad.internalId && !ad.id && !ad.vin && !ad.externalId) continue;
 
-      const title = `${ad.make || ad.brand || ''} ${ad.model || ''}`.trim() || 'Unbekanntes Fahrzeug';
-      const externalId = (ad.internalId?.split('/').pop() || ad.id || ad.vin || '').toString();
-      
-      if (!externalId) continue;
+        const title = `${ad.make || ad.brand || ''} ${ad.model || ''}`.trim() || 'Unbekanntes Fahrzeug';
+        const externalId = (ad.internalId?.split('/').pop() || ad.id || ad.vin || ad.externalId || '').toString();
+        
+        if (!externalId) continue;
       // Update status immediately for the first vehicle and then every 10
       if (logId && (successCount === 0 || successCount % 10 === 0)) {
           await supabase.from('import_logs').update({
