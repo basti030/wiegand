@@ -520,10 +520,9 @@ export async function runVehicleSync(existingLogId?: string | number | null) {
 
     return {
       success: true,
-      vehiclesProcessed: rawData.length,
+      vehiclesProcessed: vehicles.length,
       vehiclesSynced: successCount
     };
-
   } catch (err: any) {
     console.error('💥 Sync Service failed:', err.message);
     if (logId) {
