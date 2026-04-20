@@ -282,6 +282,7 @@ export async function runVehicleSync(existingLogId?: string | number | null) {
     
     const rawData = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
     console.log(`📊 Found ${rawData.length} vehicles in JSON.`);
+    if (logId) await supabase.from('import_logs').update({ details: { message: `Extraktion beendet. Starte Import von ${rawData.length} Fahrzeugen...` } }).eq('id', logId);
 
     let successCount = 0;
     let imageCount = 0;
@@ -343,7 +344,7 @@ export async function runVehicleSync(existingLogId?: string | number | null) {
           ? new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(priceValue)
           : 'Auf Anfrage';
 
-        // 🖼️ Image Processing
+        // 🖼️ Image Processing (🏎️ Parallelized for speed)
         const imageFiles = allFiles
           .filter(f => f.startsWith(`${externalId}_`) && f.toLowerCase().endsWith('.jpg'))
           .sort();
@@ -351,29 +352,37 @@ export async function runVehicleSync(existingLogId?: string | number | null) {
         let primaryImageUrl = '';
         const allCloudUrls: string[] = [];
 
-        for (const imgName of imageFiles) {
-          const localImgPath = path.join(TEMP_DIR, imgName);
-          if (fs.existsSync(localImgPath)) {
-            const fileBuffer = fs.readFileSync(localImgPath);
-            const cloudPath = `${externalId}/${imgName}`;
-            
-            const { error: uploadError } = await supabase.storage
-              .from('vehicle-images')
-              .upload(cloudPath, fileBuffer, {
-                contentType: 'image/jpeg',
-                upsert: true
-              });
-
-            if (!uploadError) {
-              const { data: { publicUrl } } = supabase.storage
-                .from('vehicle-images')
-                .getPublicUrl(cloudPath);
+        if (imageFiles.length > 0) {
+          const uploadPromises = imageFiles.map(async (imgName) => {
+            const localImgPath = path.join(TEMP_DIR, imgName);
+            if (fs.existsSync(localImgPath)) {
+              const fileBuffer = fs.readFileSync(localImgPath);
+              const cloudPath = `${externalId}/${imgName}`;
               
-              if (!primaryImageUrl) primaryImageUrl = publicUrl;
-              allCloudUrls.push(publicUrl);
-              imageCount++;
+              const { error: uploadError } = await supabase.storage
+                .from('vehicle-images')
+                .upload(cloudPath, fileBuffer, {
+                  contentType: 'image/jpeg',
+                  upsert: true
+                });
+
+              if (!uploadError) {
+                const { data: { publicUrl } } = supabase.storage
+                  .from('vehicle-images')
+                  .getPublicUrl(cloudPath);
+                
+                return publicUrl;
+              }
             }
-          }
+            return null;
+          });
+
+          const results = await Promise.all(uploadPromises);
+          results.filter(url => url !== null).forEach((url, idx) => {
+            if (idx === 0) primaryImageUrl = url!;
+            allCloudUrls.push(url!);
+            imageCount++;
+          });
         }
 
         // Check if exists for stats
@@ -417,15 +426,15 @@ export async function runVehicleSync(existingLogId?: string | number | null) {
           successCount++;
         }
 
-        // 🔄 Update progress every 20 vehicles to reduce DB load
-        if (logId && (successCount % 20 === 0 || successCount === rawData.length)) {
+        // 🔄 Update progress every 10 vehicles to reduce DB load
+        if (logId && (successCount % 10 === 0 || successCount === rawData.length)) {
           await supabase.from('import_logs').update({
             vehicles_processed: successCount,
             inserted_count: insertedCount,
             updated_count: updatedCount,
             deleted_count: deletedCount,
             details: { 
-              message: `Verarbeitung: ${successCount} von ${rawData.length}...`,
+              message: `Verarbeitung: ${successCount} von ${rawData.length} Fahrzeugen...`,
               current_vehicle: title
             }
           }).eq('id', logId);
@@ -439,23 +448,37 @@ export async function runVehicleSync(existingLogId?: string | number | null) {
 
     // 5. Final Success Recording
     if (logId) {
-      console.log('✅ Synchronisierung beendet. Aktualisiere Status...');
+      console.log('✅ Synchronisierung beendet. Aktualisiere Status in DB...');
       const hasChanges = insertedCount > 0 || updatedCount > 0 || deletedCount > 0;
       const durationMs = Date.now() - startTime;
       
-      await supabase.from('import_logs').update({
+      const finalPayload = {
         status: hasChanges ? 'SUCCESS' : 'UNCHANGED',
         vehicles_processed: successCount,
         inserted_count: insertedCount,
         updated_count: updatedCount,
         deleted_count: deletedCount,
+        errors_count: 0,
         details: { 
-          message: hasChanges ? 'Synchronisation erfolgreich abgeschlossen.' : 'Synchronisation abgeschlossen (Keine Änderungen).',
+          message: hasChanges ? 'Synchronisation erfolgreich abgeschlossen.' : 'Import abgeschlossen (Keine Änderungen).',
           processed_info: `${successCount} von ${rawData.length} Fahrzeugen verarbeitet.`,
           duration: `${Math.round(durationMs / 1000)}s`,
           duration_ms: durationMs
         }
-      }).eq('id', logId);
+      };
+
+      // Try update with error check
+      const { error: finalError } = await supabase.from('import_logs').update(finalPayload).eq('id', logId);
+      
+      if (finalError) {
+        console.error('❌ CRITICAL: Final status update failed:', finalError.message);
+        // Small delay and retry once
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        const { error: retryError } = await supabase.from('import_logs').update(finalPayload).eq('id', logId);
+        if (retryError) console.error('❌ Retry also failed:', retryError.message);
+      } else {
+        console.log(`✅ Status updated to ${finalPayload.status}.`);
+      }
     }
 
     return {
@@ -467,10 +490,12 @@ export async function runVehicleSync(existingLogId?: string | number | null) {
   } catch (err: any) {
     console.error('💥 Sync Service failed:', err.message);
     if (logId) {
-      await supabase.from('import_logs').update({
-        status: 'ERROR',
-        details: { error: err.message, message: 'Kritischer Fehler im Sync-Service.' }
-      }).eq('id', logId);
+      try {
+        await supabase.from('import_logs').update({
+          status: 'ERROR',
+          details: { error: err.message, message: 'Kritischer Fehler im Sync-Service.' }
+        }).eq('id', logId);
+      } catch (e) {}
     }
     return { success: false, error: err.message };
   } finally {
