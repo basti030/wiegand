@@ -266,14 +266,19 @@ export async function runVehicleSync(existingLogId?: string | number | null) {
     await sftp.fastGet(remotePath, zipPath);
     await sftp.end();
 
-    // 2. Extract using adm-zip (native Node.js, cloud compatible)
-    console.log('📦 Extracting data...');
-    if (logId) await supabase.from('import_logs').update({ details: { message: 'Entpacke Daten...' } }).eq('id', logId);
+    // 3. Extract ZIP
+    console.log(`📦 Extracting ${targetFilename}...`);
+    if (logId) await supabase.from('import_logs').update({ details: { message: `Entpacke Daten (nutze System-Unzip)...` } }).eq('id', logId);
+    
+    if (!fs.existsSync(TEMP_DIR)) fs.mkdirSync(TEMP_DIR, { recursive: true });
+    
     try {
-      const zip = new AdmZip(zipPath);
-      zip.extractAllTo(TEMP_DIR, true);
+      // Use native unzip for stability and speed
+      const { execSync } = require('child_process');
+      execSync(`unzip -q -o "${zipPath}" -d "${TEMP_DIR}"`);
     } catch (e: any) {
-      throw new Error(`Extraktion fehlgeschlagen: ${e.message}`);
+      console.error('Unzip Error:', e.message);
+      throw new Error(`Extraktion fehlgeschlagen (System-Unzip): ${e.message}`);
     }
 
     // 3. Parse JSON
