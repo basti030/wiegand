@@ -320,7 +320,6 @@ export async function runVehicleSync(existingLogId?: string | number | null) {
 
     // 6. Process Vehicles
     for (const item of vehicles) {
-      try {
         // Support both { ad: {...} } and direct {...} structure
         const ad = item.ad || item;
         if (!ad || typeof ad !== 'object') continue;
