@@ -5,6 +5,7 @@ import { Phone, Mail, Clock, MessageSquare, Facebook, Instagram, MapPin, Printer
 import { Header } from "../components/Header";
 import { CookieConsent } from "../components/CookieConsent";
 import { CookieConsentTrigger } from "../components/CookieConsentTrigger";
+import { AccessibilityTool } from "../components/AccessibilityTool";
 
 export const metadata: Metadata = {
   title: "Autohaus Wiegand | Ihr Partner für SEAT, CUPRA & SKODA in Büdingen & Gelnhausen",
@@ -41,6 +42,7 @@ export default function RootLayout({
   return (
     <html lang="de" className="scroll-smooth">
       <body className="antialiased font-sans text-brand-dark bg-white">
+        <AccessibilityTool />
         {/* Top Bar */}
         <div className="hidden lg:block bg-brand-dark text-[11px] text-white py-2 font-medium border-b border-white/5">
           <div className="container mx-auto px-4 flex justify-between items-center flex-wrap gap-y-2">
