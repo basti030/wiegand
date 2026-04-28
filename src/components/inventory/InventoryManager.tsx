@@ -11,11 +11,12 @@ interface InventoryManagerProps {
   initialVehicles: any[];
   options: any;
   serverSearchParams?: any;
+  showOnlyFavorites?: boolean;
 }
 
 const ITEMS_PER_PAGE = 40;
 
-export default function InventoryManager({ initialVehicles, options, serverSearchParams }: InventoryManagerProps) {
+export default function InventoryManager({ initialVehicles, options, serverSearchParams, showOnlyFavorites = false }: InventoryManagerProps) {
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -81,6 +82,30 @@ export default function InventoryManager({ initialVehicles, options, serverSearc
   });
 
   const [currentPage, setCurrentPage] = useState(1);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [favorites, setFavorites] = useState<string[]>([]);
+  const [failedLogos, setFailedLogos] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    const stored = localStorage.getItem("wiegand_favs");
+    if (stored) {
+      try {
+        setFavorites(JSON.parse(stored));
+      } catch (e) {}
+    }
+  }, []);
+
+  const toggleFavorite = (id: string) => {
+    let newFavs = [...favorites];
+    if (newFavs.includes(id)) {
+      newFavs = newFavs.filter(item => item !== id);
+    } else {
+      newFavs.push(id);
+    }
+    setFavorites(newFavs);
+    localStorage.setItem("wiegand_favs", JSON.stringify(newFavs));
+    window.dispatchEvent(new Event("favorites-updated"));
+  };
 
   const handleFilterChange = (key: string, value: any) => {
     try {
@@ -132,7 +157,37 @@ export default function InventoryManager({ initialVehicles, options, serverSearc
 
   const filteredVehicles = useMemo(() => {
     try {
-      let result = [...initialVehicles];
+      let result = [...initialVehicles].filter(v => {
+        const invalidTitle = !v.title || v.title === "Fahrzeug ohne Titel" || v.title === "";
+        const invalidModel = !(v.raw_data as any)?.model;
+        return !(invalidTitle && invalidModel);
+      });
+      
+      if (showOnlyFavorites) {
+        result = result.filter(v => favorites.includes(v.id));
+      }
+
+      if (searchTerm) {
+        const term = searchTerm.toLowerCase();
+        result = result.filter(v => {
+          const title = String(v.title || "").toLowerCase();
+          const brand = String(v.brand || "").toLowerCase();
+          const jsonString = JSON.stringify(v.raw_data || {}).toLowerCase();
+          
+          const colorMap: Record<string, string> = {
+            "BLACK": "schwarz", "BLUE": "blau", "GREEN": "grün", 
+            "GREY": "grau", "ORANGE": "orange", "RED": "rot", 
+            "SILVER": "silber", "WHITE": "weiß"
+          };
+          const rawColor = String((v.raw_data as any)?.exteriorColor || "").toUpperCase();
+          const mappedColor = colorMap[rawColor] || "";
+
+          return title.includes(term) || 
+                 brand.includes(term) || 
+                 jsonString.includes(term) || 
+                 mappedColor.includes(term);
+        });
+      }
 
       // Basic filters 
       if (filters.brand && filters.brand !== "Alle Hersteller") {
@@ -266,7 +321,7 @@ export default function InventoryManager({ initialVehicles, options, serverSearc
       console.error("Error in filteredVehicles useMemo:", e);
       return [];
     }
-  }, [filters, initialVehicles]);
+  }, [filters, initialVehicles, searchTerm, favorites, showOnlyFavorites]);
 
   // DYNAMIC OPTIONS: Faceted Search logic
   // Options for a filter X are calculated by applying all filters EXCEPT filter X.
@@ -511,141 +566,224 @@ export default function InventoryManager({ initialVehicles, options, serverSearc
     );
   };
 
+  const filterConfigs = [
+    { key: "location", label: "Standort", options: ["Alle Standorte", "Büdingen", "Gelnhausen"] },
+    { key: "condition", label: "Fahrzeugzustand", options: ["Alle Zustände", ...(options.conditions || ["NEW", "USED"])], labels: { "NEW": "Neuwagen", "USED": "Gebrauchtwagen" } },
+    { key: "brand", label: "Hersteller", options: ["Alle Hersteller", ...(options.brands || [])] },
+    { key: "model", label: "Modell", options: ["Alle Modelle", ...(options.models || [])] },
+    { key: "category", label: "Fahrzeugtyp", options: ["Alle Typen", ...(options.categories || [])], labels: { "EstateCar": "Kombi", "Limousine": "Limousine", "OffRoad": "SUV", "SmallCar": "Kleinwagen", "SportsCar": "Sportwagen", "Van": "Van" } },
+    { key: "mileage", label: "Kilometerstand", options: ["Beliebig", "bis 5.000 km", "bis 10.000 km", "bis 20.000 km", "bis 50.000 km", "über 50.000 km"] },
+    { key: "registration", label: "Erstzulassung", options: ["Beliebig", "2024", "2023", "2022", "2021", "älter"] },
+    { key: "power", label: "Leistung (PS)", options: ["Beliebig", "bis 100 PS", "100 - 150 PS", "150 - 200 PS", "über 200 PS"] },
+    { key: "fuel", label: "Kraftstoffart", options: ["Alle Kraftstoffe", ...(options.fuels || [])], labels: { "PETROL": "Benzin", "DIESEL": "Diesel", "ELECTRICITY": "Elektro", "HYBRID": "Hybrid", "CNG": "Gas" } },
+    { key: "color", label: "Außenfarbe", options: ["Alle Farben", ...(options.colors || [])], labels: { "BLACK": "Schwarz", "BLUE": "Blau", "GREEN": "Grün", "GREY": "Grau", "ORANGE": "Orange", "RED": "Rot", "SILVER": "Silber", "WHITE": "Weiß" } },
+    { key: "gearbox", label: "Getriebe", options: ["Alle Getriebe", ...(options.gearboxes || [])], labels: { "AUTOMATIC_GEAR": "Automatik", "MANUAL_GEAR": "Schaltgetriebe" } },
+    { key: "doors", label: "Türen", options: ["Beliebig", "2/3", "4/5"] },
+    { key: "price", label: "Preis bis", options: ["Beliebig", "bis 15.000 €", "bis 20.000 €", "bis 25.000 €", "bis 35.000 €", "bis 50.000 €", "über 50.000 €"] },
+  ];
+
+  const quickTags = [
+    { key: "condition", value: "NEW", label: "Neuwagen" },
+    { key: "condition", value: "USED", label: "Gebrauchtwagen" },
+    { key: "fuel", value: "PETROL", label: "Benzin" },
+    { key: "fuel", value: "DIESEL", label: "Diesel" },
+    { key: "fuel", value: "ELECTRICITY", label: "Elektro" },
+    { key: "fuel", value: "HYBRID", label: "Hybrid" },
+    { key: "gearbox", value: "AUTOMATIC_GEAR", label: "Automatik" },
+    { key: "gearbox", value: "MANUAL_GEAR", label: "Schaltgetriebe" },
+  ];
+
   return (
-    <div className="space-y-12" id="inventory-results">
-      {/* Search Header */}
-      <div className="bg-white border rounded-[2rem] px-6 md:px-12 py-6 md:py-8 flex flex-col md:flex-row items-center justify-between gap-4 shadow-sm">
-        <div className="text-center md:text-left">
-          <h2 className="text-2xl md:text-3xl font-black text-brand-dark uppercase tracking-tighter">Fahrzeugbestand</h2>
-          <p className="text-gray-400 font-bold text-xs uppercase tracking-widest mt-1">Exklusives Angebot von Auto Wiegand</p>
+    <div className="max-w-[1600px] mx-auto space-y-6" id="inventory-results">
+      {/* Top Search Bar & Quick Tags */}
+      <div className="bg-[#F2F2F2] p-6 rounded-xl border border-gray-200">
+        <div className="relative flex items-center bg-white border border-gray-300 rounded-lg overflow-hidden shadow-sm">
+          <div className="px-4 text-gray-400">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          </div>
+          <input 
+            type="text" 
+            placeholder="Suche nach Marke, Modell, Farbe..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full py-3.5 text-base font-medium text-gray-900 outline-none"
+          />
+        </div>
+
+        <div className="flex gap-2 mt-4 overflow-x-auto py-1 no-scrollbar">
+          {quickTags.map((tag) => {
+            const isActive = filters[tag.key] === tag.value;
+            return (
+              <button
+                key={tag.label}
+                onClick={() => handleFilterChange(tag.key, isActive ? "Beliebig" : tag.value)}
+                className={`px-4 py-2 text-sm font-bold rounded border transition-all shrink-0 ${
+                  isActive 
+                    ? "bg-brand-orange text-white border-brand-orange" 
+                    : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                }`}
+              >
+                {tag.label}
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      <InventoryFilterGrid 
-        filters={filters} 
-        setFilters={handleFilterChange} 
-        options={dynamicOptions} 
-        onReset={resetFilters}
-      />
+      <div className="flex flex-col lg:flex-row gap-8">
+      {/* Left Sidebar: Filters */}
+      <aside className="w-full lg:w-[300px] shrink-0 bg-white p-6 rounded-xl border border-gray-200 h-fit">
+        <div className="flex justify-between items-center mb-6 pb-4 border-b border-gray-100">
+          <h3 className="text-xl font-bold text-gray-900">Filter</h3>
+          <button 
+            onClick={resetFilters}
+            className="text-xs font-bold text-brand-orange hover:text-gray-900 transition-colors flex items-center gap-1"
+          >
+            Zurücksetzen
+          </button>
+        </div>
 
-      {renderPagination()}
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-10">
-        {paginatedVehicles.map((v) => {
-          const ad = (v.raw_data as any) || {};
-          const mileage = ad.mileage ? new Intl.NumberFormat('de-DE').format(ad.mileage) : '0';
-          const regDate = (() => {
-            if (!ad.firstRegistration) return 'NEU';
-            const s = String(ad.firstRegistration);
-            const match = s.match(/\d{4}/);
-            return match ? match[0] : 'NEU';
-          })();
-
-          const tech = formatTechSpecs(ad);
-
-          return (
-            <div key={v.id} className="bg-white rounded-[2.5rem] shadow-xl shadow-gray-200/50 border border-gray-100 hover:border-brand-orange/20 transition-all overflow-hidden group">
-              <div className="relative aspect-[16/10] overflow-hidden bg-gray-100">
-                <img 
-                  src={v.image && v.image !== "" ? v.image : "/images/betrieb.jpg"} 
-                  alt={v.title} 
-                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
-                />
-                <div className="absolute top-8 left-8 flex flex-col gap-3">
-                  <span className="px-5 py-2.5 bg-white/95 backdrop-blur-sm text-[10px] font-black uppercase tracking-widest text-brand-dark rounded-full shadow-xl">
-                    {v.status}
-                  </span>
-                  {tech.co2Class !== 'k.A.' && (
-                    <span className={`px-4 py-1.5 ${getCO2Color(tech.co2Class)} text-white text-[10px] font-black uppercase tracking-widest rounded-full shadow-lg self-start`}>
-                      CO2-Klasse {tech.co2Class}
-                    </span>
-                  )}
-                </div>
-                {/* Brand Logo Overlay */}
-                {["SEAT", "CUPRA", "SKODA"].includes(v.brand?.toUpperCase()) && (
-                  <div className="absolute top-6 md:top-10 right-6 md:right-10 w-16 md:w-24 h-16 md:h-24 bg-white/95 backdrop-blur-xl rounded-2xl md:rounded-[2.5rem] flex items-center justify-center p-4 md:p-6 shadow-2xl border border-white/50 z-20">
-                    <img 
-                      src={`/images/${v.brand.toLowerCase()}.svg`} 
-                      alt={v.brand} 
-                      className="w-full h-full object-contain brightness-0"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).classList.add('hidden');
-                      }}
-                    />
-                  </div>
-                )}
-              </div>
-
-              <div className="p-8 md:p-10">
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="text-[9px] font-black uppercase tracking-[0.3em] text-brand-orange">{v.brand}</span>
-                </div>
-                <h3 className="text-2xl font-black text-brand-dark mb-8 line-clamp-1 uppercase tracking-tighter group-hover:text-brand-orange transition-colors">
-                  {v.title}
-                </h3>
-
-                <div className="grid grid-cols-2 gap-8 mb-10">
-                  <div className="flex items-center gap-4 text-gray-500">
-                    <div className="w-12 h-12 rounded-2xl bg-brand-gray flex items-center justify-center text-brand-dark shadow-sm">
-                      <Calendar size={20} />
-                    </div>
-                    <div>
-                      <div className="text-[8px] font-black uppercase tracking-[0.2em] text-gray-400 mb-1">Zulassung</div>
-                      <span className="text-xs font-black uppercase tracking-widest">{ad.condition === 'NEW' ? 'Neuwagen' : `EZ ${regDate}`}</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-4 text-gray-500">
-                    <div className="w-12 h-12 rounded-2xl bg-brand-gray flex items-center justify-center text-brand-dark shadow-sm">
-                      <Gauge size={20} />
-                    </div>
-                    <div>
-                    <div className="text-[8px] font-black uppercase tracking-[0.2em] text-gray-400 mb-1">Kilometer</div>
-                      <span className="text-xs font-black uppercase tracking-widest">{mileage} km</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Tech Specs Summary */}
-                <div className="bg-brand-gray/50 rounded-2xl p-5 mb-10 flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-gray-400">
-                   <div className="flex items-center gap-3">
-                     <Leaf size={14} className="text-green-500" />
-                     <span>Kombiniert: {tech.consumption}</span>
-                   </div>
-                   <div className="h-4 w-px bg-gray-200"></div>
-                   <span>{tech.co2}</span>
-                </div>
-
-                <div className="flex items-center justify-between pt-10 border-t border-gray-100">
-                  <div>
-                    <div className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Unser Preis</div>
-                    <div className="text-4xl font-black text-brand-dark tracking-tighter">{v.price}</div>
-                  </div>
-                  <Link 
-                    href={`/fahrzeuge/${v.external_id}`} 
-                    className="w-16 h-16 bg-brand-dark text-white rounded-[1.5rem] flex items-center justify-center group-hover:bg-brand-orange transition-all shadow-xl shadow-brand-dark/10 hover:-translate-y-1"
-                    title={`Details für ${v.title} ansehen`}
-                  >
-                    <ArrowRight size={28} className="group-hover:translate-x-1 transition-transform" />
-                  </Link>
-                </div>
-              </div>
+        <div className="space-y-6">
+          {filterConfigs.map((config) => (
+            <div key={config.key} className="flex flex-col">
+              <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+                {config.label}
+              </label>
+              <select
+                className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-sm font-medium text-gray-900 outline-none focus:border-brand-orange focus:bg-white transition-colors cursor-pointer appearance-none"
+                value={filters[config.key] || config.options[0]}
+                onChange={(e) => handleFilterChange(config.key, e.target.value)}
+              >
+                {config.options.map((opt) => (
+                  <option key={opt} value={opt}>
+                    {(config.labels as any)?.[opt] || opt}
+                  </option>
+                ))}
+              </select>
             </div>
-          );
-        })}
-      </div>
-
-      {renderPagination()}
-
-      {filteredVehicles.length === 0 && (
-        <div className="py-40 text-center bg-white rounded-[4rem] border border-dashed border-gray-200 shadow-inner">
-           <div className="text-gray-300 font-black uppercase tracking-widest text-sm italic">
-             Keine Fahrzeuge entsprechend Ihrer Filterkriterien gefunden
-           </div>
-           <button onClick={resetFilters} className="mt-8 text-brand-orange font-black uppercase tracking-[0.2em] text-xs hover:text-brand-dark transition-colors">
-             Alle Filter zurücksetzen
-           </button>
+          ))}
         </div>
-      )}
+      </aside>
+
+      {/* Right: Vehicle Listings */}
+      <div className="flex-1">
+        <div className="flex justify-between items-center mb-6 pb-4 border-b border-gray-200">
+          <div className="text-sm font-bold text-gray-500">
+            {filteredVehicles.length} Treffer
+          </div>
+          
+          {/* Sorting */}
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Sortierung:</span>
+            <select 
+              className="text-sm font-bold bg-white border border-gray-200 rounded-lg px-4 py-2 cursor-pointer outline-none"
+              value={filters.sort || "newest"}
+              onChange={(e) => handleFilterChange("sort", e.target.value)}
+            >
+              <option value="newest">Neueste zuerst</option>
+              <option value="price_asc">Preis (aufsteigend)</option>
+              <option value="price_desc">Preis (absteigend)</option>
+              <option value="mileage_asc">Kilometer (aufsteigend)</option>
+            </select>
+          </div>
+        </div>
+
+        {renderPagination()}
+        <div className="h-6"></div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6">
+          {paginatedVehicles.map((v) => {
+            const ad = (v.raw_data as any) || {};
+            const mileage = ad.mileage ? new Intl.NumberFormat('de-DE').format(ad.mileage) : '0';
+            const regDate = (() => {
+              if (!ad.firstRegistration) return 'NEU';
+              const s = String(ad.firstRegistration);
+              const match = s.match(/\d{4}/);
+              return match ? match[0] : 'NEU';
+            })();
+
+            const tech = formatTechSpecs(ad);
+            const brandLogo = `/images/${(v.brand || 'wiegand').toLowerCase()}.svg`;
+
+            return (
+              <div key={v.id} className="bg-white border border-gray-200 rounded-lg overflow-hidden flex flex-col group relative">
+                {/* Image Area */}
+                {/* Image Area */}
+                <div className="relative aspect-[4/3] overflow-hidden bg-gray-100">
+                  <Link href={`/fahrzeuge/${v.external_id}`} className="block w-full h-full">
+                    <img 
+                      src={v.image && v.image !== "" ? v.image : "/images/betrieb.jpg"} 
+                      alt={v.title} 
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                    />
+                  </Link>
+                  
+                  {/* Brand Logo Overlay */}
+                  {!failedLogos[v.id] && (
+                    <div className="absolute top-3 left-3 bg-white/90 p-1.5 rounded pointer-events-none">
+                      <img 
+                        src={brandLogo} 
+                        alt={v.brand} 
+                        className="h-3.5 object-contain" 
+                        onError={() => setFailedLogos(prev => ({ ...prev, [v.id]: true }))} 
+                      />
+                    </div>
+                  )}
+                  
+                  {/* Heart / Favorite button */}
+                  <button 
+                    onClick={() => toggleFavorite(v.id)}
+                    className={`absolute top-3 right-3 w-7 h-7 bg-white/90 rounded-full flex items-center justify-center transition-colors shadow-sm z-10 ${
+                      favorites.includes(v.id) ? "text-brand-orange" : "text-gray-400 hover:text-brand-orange"
+                    }`}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill={favorites.includes(v.id) ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
+                  </button>
+                </div>
+
+                {/* Content Area */}
+                <div className="p-4 flex flex-col flex-1">
+                  <Link href={`/fahrzeuge/${v.external_id}`} className="mb-2">
+                    <h3 className="font-bold text-gray-900 text-base leading-tight group-hover:text-brand-orange transition-colors line-clamp-1">
+                      {v.brand} {v.title && v.title !== "Fahrzeug ohne Titel" ? v.title.replace(v.brand || '', '').trim() : (ad.model || 'Angebot')}
+                    </h3>
+                    <p className="text-xs text-gray-400 line-clamp-1 mt-1">
+                      {ad.modelDescription || 'Attraktives Angebot'}
+                    </p>
+                  </Link>
+
+                  <div className="text-xl font-bold text-gray-900 mt-auto pt-4">
+                    {v.price}
+                  </div>
+                  
+                  <div className="text-[11px] text-gray-400 mt-1 flex flex-col gap-0.5 border-t border-gray-100 pt-3">
+                    <div>{ad.condition === 'NEW' ? 'Neuwagen' : `Erstzulassung: ${regDate}`}</div>
+                    <div>{mileage} km | {v.power || '110 kW'} | {v.fuel_type || 'Benzin'}</div>
+                  </div>
+
+                  <div className="text-[10px] text-gray-400 mt-2 pt-2 border-t border-gray-100 flex flex-col gap-0.5">
+                    <div><strong>WLTP:</strong> Verbrauch komb.: {tech.consumption}</div>
+                    <div>CO₂-Emissionen komb.: {tech.co2}</div>
+                    <div>CO₂ Klasse: {tech.co2Class}</div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {filteredVehicles.length === 0 && (
+          <div className="py-20 text-center bg-white border border-gray-200 rounded-xl">
+            <div className="text-gray-400 text-sm font-medium">
+              Keine Fahrzeuge entsprechend Ihrer Filterkriterien gefunden.
+            </div>
+          </div>
+        )}
+
+        <div className="h-12"></div>
+        {renderPagination()}
+      </div>
     </div>
-  );
+  </div>
+);
 }

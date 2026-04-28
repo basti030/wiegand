@@ -1,402 +1,341 @@
 "use client";
-// Force redeploy trigger 2
 
-
-import { motion, AnimatePresence } from "framer-motion";
-import { ArrowRight, Car, Settings, Users, Phone, ShieldCheck, Zap, ChevronRight, Percent } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { Heart, Search, Calendar, Gauge, Car, Fuel, Zap, Settings, ArrowRight } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 export default function Home() {
-  const [topVehicle, setTopVehicle] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    async function fetchTopOffer() {
-      try {
-        const { data, error } = await supabase
-          .from('vehicles')
-          .select('*')
-          .limit(5); // Fetch a few to pick a good one
-          
-        if (data && data.length > 0) {
-          // Select one that looks like the mockup (2527391 is perfect)
-          const favorite = data.find(v => v.external_id === '2527391') || data[0];
-          setTopVehicle(favorite);
-        }
-      } catch (err) {
-        console.error('Failed to fetch top offer:', err);
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchTopOffer();
-  }, []);
-
-  const ad = topVehicle?.raw_data || {};
-  const fin = ad.financing;
-  const router = useRouter();
-
-  // Search States
-  const [brands, setBrands] = useState<string[]>([]);
-  const [models, setModels] = useState<string[]>([]);
+  const [topVehicles, setTopVehicles] = useState<any[]>([]);
+  const [allVehicles, setAllVehicles] = useState<any[]>([]);
+  
+  // Search Box State
   const [selectedBrand, setSelectedBrand] = useState("");
   const [selectedModel, setSelectedModel] = useState("");
   const [selectedPrice, setSelectedPrice] = useState("");
-  const [selectedMileage, setSelectedMileage] = useState("");
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const router = useRouter();
+
+  const sliderImages = [
+    { src: "/images/seat.jpg", title: "Entdecken Sie SEAT bei Wiegand.", subtitle: "Dynamisches Design und pure Fahrfreude." },
+    { src: "/images/cupra.jpg", title: "CUPRA: Leidenschaft pur.", subtitle: "Erleben Sie Performance und Innovation auf höchstem Niveau." },
+    { src: "/images/skoda.jpg", title: "ŠKODA – Simply Clever.", subtitle: "Viel Platz, moderne Technik und höchste Zuverlässigkeit." }
+  ];
 
   useEffect(() => {
-    async function fetchFilterData() {
-      const { data } = await supabase.from('vehicles').select('brand');
-      if (data) {
-        const uniqueBrands = [...new Set(data.map(v => v.brand))].filter(Boolean).sort();
-        setBrands(uniqueBrands);
+    const timer = setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % sliderImages.length);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [sliderImages.length]);
+
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        const { data } = await supabase.from('vehicles').select('id, brand, price, raw_data, external_id, title, image, status, created_at').order('created_at', { ascending: false });
+        if (data) {
+          setAllVehicles(data);
+          setTopVehicles(data.slice(0, 8));
+        }
+      } catch (err) {
+        console.error('Failed to fetch vehicles:', err);
       }
     }
-    fetchFilterData();
+    fetchData();
   }, []);
 
-  useEffect(() => {
+  // Compute available brands
+  const availableBrands = useMemo(() => {
+    const brands = allVehicles.map(v => v.brand || v.raw_data?.make).filter(Boolean);
+    return Array.from(new Set(brands)).sort();
+  }, [allVehicles]);
+
+  // Compute available models based on selected brand
+  const availableModels = useMemo(() => {
+    let filtered = allVehicles;
     if (selectedBrand) {
-      async function fetchModels() {
-        const { data } = await supabase
-          .from('vehicles')
-          .select('raw_data')
-          .eq('brand', selectedBrand);
-        if (data) {
-          const uniqueModels = [...new Set(data.map(v => (v.raw_data as any).model))].filter(Boolean).sort();
-          setModels(uniqueModels);
-        }
-      }
-      fetchModels();
-    } else {
-      setModels([]);
+      filtered = filtered.filter(v => 
+        String(v.brand || "").toLowerCase() === selectedBrand.toLowerCase() || 
+        String(v.raw_data?.make || "").toLowerCase() === selectedBrand.toLowerCase()
+      );
     }
-    setSelectedModel("");
-  }, [selectedBrand]);
+    const models = filtered.map(v => v.raw_data?.model).filter(Boolean);
+    return Array.from(new Set(models)).sort();
+  }, [allVehicles, selectedBrand]);
+
+  // Compute live match count
+  const liveMatchCount = useMemo(() => {
+    let filtered = allVehicles;
+    if (selectedBrand) {
+      filtered = filtered.filter(v => 
+        String(v.brand || "").toLowerCase() === selectedBrand.toLowerCase() || 
+        String(v.raw_data?.make || "").toLowerCase() === selectedBrand.toLowerCase()
+      );
+    }
+    if (selectedModel) {
+      filtered = filtered.filter(v => String(v.raw_data?.model || "").toLowerCase() === selectedModel.toLowerCase());
+    }
+    if (selectedPrice) {
+      filtered = filtered.filter(v => {
+        const p = v.raw_data?.price?.consumerPriceGross || 0;
+        return p <= Number(selectedPrice);
+      });
+    }
+    return filtered.length;
+  }, [allVehicles, selectedBrand, selectedModel, selectedPrice]);
 
   const handleSearch = () => {
     const params = new URLSearchParams();
-    if (selectedBrand) params.append('brand', selectedBrand);
-    if (selectedModel) params.append('model', selectedModel);
-    if (selectedPrice) params.append('price', selectedPrice);
-    if (selectedMileage) params.append('mileage', selectedMileage);
+    if (selectedBrand) params.set("brand", selectedBrand);
+    if (selectedModel) params.set("model", selectedModel);
+    if (selectedPrice) params.set("price", selectedPrice); // Notice: fahrzeuge page handles numbers too
     
     router.push(`/fahrzeuge?${params.toString()}`);
   };
 
   return (
-    <div className="flex flex-col min-h-screen">
-      {/* Hero Section */}
-      <section className="relative h-[90vh] flex items-center overflow-hidden bg-brand-dark">
-        <div className="absolute inset-0 z-0">
-          <img 
-            src="/images/hero.jpg" 
-            alt="Auto Wiegand Autohaus" 
-            className="w-full h-full object-cover opacity-60"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-brand-dark via-brand-dark/20 to-transparent"></div>
+    <div className="font-sans bg-[#F2F2F2] min-h-screen">
+      
+      {/* 1. HERO SLIDER & SEARCH BOX */}
+      <section className="relative w-full h-[80vh] min-h-[600px] flex flex-col items-center justify-center">
+        {/* Background Image Slider */}
+        <div className="absolute inset-0 overflow-hidden z-0">
+          {sliderImages.map((slide, index) => (
+            <div 
+              key={index}
+              className={`absolute inset-0 transition-opacity duration-1000 ${currentSlide === index ? 'opacity-100' : 'opacity-0'}`}
+            >
+              <img src={slide.src} alt="Hero" className="w-full h-full object-cover" />
+              <div className="absolute inset-0 bg-black/40" />
+            </div>
+          ))}
         </div>
 
-        <div className="container mx-auto px-4 relative z-10">
-          <motion.div 
-            initial={{ opacity: 0, x: -50 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 1 }}
-            className="max-w-3xl"
-          >
-            <div className="flex items-center gap-3 mb-6">
-              <span className="w-12 h-1 bg-brand-orange"></span>
-              <span className="text-white text-xs md:text-sm font-black uppercase tracking-[0.3em]">Willkommen bei Auto Wiegand</span>
-            </div>
-            
-            <h1 className="text-4xl sm:text-6xl md:text-8xl font-black text-white mb-8 leading-[0.9] tracking-tighter">
-              DRIVEN BY <br />
-              <span className="text-brand-orange">PASSION.</span>
-            </h1>
-            
-            <p className="text-xl md:text-2xl text-gray-300 mb-12 leading-relaxed max-w-xl font-medium">
-              Erleben Sie die Performance von CUPRA und die Innovation von SEAT & SKODA direkt in Büdingen & Gelnhausen.
-            </p>
-            
-            <div className="flex flex-wrap gap-6">
-              <a href="/fahrzeuge" className="btn-primary flex items-center gap-4 text-sm md:text-base px-10 py-5 rounded-none uppercase tracking-widest font-black group">
-                Bestand entdecken <ArrowRight size={20} className="group-hover:translate-x-2 transition-transform" />
-              </a>
-              <a href="/kontakt" className="bg-white/10 hover:bg-white text-white hover:text-brand-dark px-10 py-5 transition-all flex items-center gap-4 text-sm md:text-base uppercase tracking-widest font-black backdrop-blur-md">
-                Service anfragen
-              </a>
-            </div>
-          </motion.div>
-        </div>
-
-        {/* Floating Badges */}
-        <div className="absolute bottom-12 right-12 hidden xl:flex gap-8">
-          <div className="bg-white/5 backdrop-blur-xl border border-white/10 p-6 rounded-2xl flex items-center gap-4">
-            <div className="w-12 h-12 bg-brand-orange/20 text-brand-orange rounded-full flex items-center justify-center">
-              <ShieldCheck size={28} />
-            </div>
-            <div className="text-white">
-              <div className="font-black uppercase tracking-widest text-[10px] text-brand-orange mb-1">Zertifiziert</div>
-              <div className="text-sm font-bold">Meisterbetrieb</div>
-            </div>
-          </div>
-          <div className="bg-white/5 backdrop-blur-xl border border-white/10 p-6 rounded-2xl flex items-center gap-4">
-            <div className="w-12 h-12 bg-white/10 text-white rounded-full flex items-center justify-center">
-              <Zap size={28} />
-            </div>
-            <div className="text-white">
-              <div className="font-black uppercase tracking-widest text-[10px] text-gray-400 mb-1">Performance</div>
-              <div className="text-sm font-bold">CUPRA Specialist</div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Trust & Brands */}
-      <section className="py-20 bg-white">
-        <div className="container mx-auto px-4">
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 items-center gap-12 opacity-40 hover:opacity-100 transition-opacity">
-            <img src="/images/seat.svg" alt="SEAT" className="h-8 md:h-10 w-auto mx-auto transition-all hover:scale-110" />
-            <img src="/images/cupra.svg" alt="CUPRA" className="h-8 md:h-12 w-auto mx-auto transition-all hover:scale-110 brightness-0" />
-            <img src="/images/skoda.svg" alt="SKODA" className="h-8 md:h-10 w-auto mx-auto transition-all hover:scale-110" />
-            <div className="hidden lg:block h-12 w-px bg-gray-200 mx-auto"></div>
-            <div className="col-span-2 md:col-span-1 text-center md:text-left">
-              <div className="text-3xl font-black text-brand-dark italic">seit 1991.</div>
-              <div className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">Tradition & Innovation</div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Services Grid */}
-      <section className="py-32 bg-brand-gray relative">
-        <div className="container mx-auto px-4">
-          <div className="flex flex-col md:flex-row justify-between items-end mb-20 gap-8">
-            <div className="max-w-xl">
-              <h2 className="text-xs font-black uppercase tracking-[0.4em] text-brand-orange mb-4">Exzellenz im Fokus</h2>
-              <div className="text-4xl md:text-6xl font-black text-brand-dark leading-tight uppercase tracking-tighter">
-                LEISTUNG, DIE BEGEISTERT.
-              </div>
-            </div>
-            <Link href="/service" className="text-sm font-black uppercase tracking-widest flex items-center gap-3 text-brand-orange group">
-              Alle Leistungen ansehen <ArrowRight size={18} className="group-hover:translate-x-2 transition-transform" />
+        {/* Slider Controls */}
+        <button 
+          onClick={() => setCurrentSlide((prev) => (prev - 1 + sliderImages.length) % sliderImages.length)}
+          className="absolute left-4 top-1/2 -translate-y-1/2 z-30 w-12 h-12 bg-white/20 hover:bg-white text-white hover:text-black rounded-full flex items-center justify-center backdrop-blur-md transition-all"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+        </button>
+        <button 
+          onClick={() => setCurrentSlide((prev) => (prev + 1) % sliderImages.length)}
+          className="absolute right-4 top-1/2 -translate-y-1/2 z-30 w-12 h-12 bg-white/20 hover:bg-white text-white hover:text-black rounded-full flex items-center justify-center backdrop-blur-md transition-all"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+        </button>
+        
+        {/* Hero Content */}
+        <div className="relative z-10 container mx-auto px-4 text-center mt-[-50px]">
+          <h1 className="text-4xl md:text-6xl font-bold text-white mb-4 tracking-tight drop-shadow-md">
+            {sliderImages[currentSlide].title}
+          </h1>
+          <p className="text-xl text-white/90 mb-8 max-w-2xl mx-auto drop-shadow-sm">
+            {sliderImages[currentSlide].subtitle}
+          </p>
+          <div className="flex justify-center gap-4">
+            <Link href="/angebote" className="bg-brand-orange hover:bg-[#e66a00] text-white font-bold py-4 px-10 rounded-[30px] transition-colors inline-block text-lg shadow-lg">
+              Unsere Angebote
             </Link>
           </div>
+        </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
-            {[
-              { 
-                icon: <Car size={32} />, 
-                title: "Premium Neuwagen", 
-                desc: "Entdecken Sie die neuesten technologischen Meilensteine von SEAT, CUPRA und SKODA direkt vor Ort.",
-                image: "/images/premium-neuwagen.jpg",
-                link: "/fahrzeuge?condition=NEW"
-              },
-              { 
-                icon: <Settings size={32} />, 
-                title: "Meisterwerkstatt", 
-                desc: "Zertifizierter Service nach strengsten Herstellervorgaben für maximale Langlebigkeit Ihres Fahrzeugs.",
-                image: "/images/meisterwerkstatt.jpg",
-                link: "/service"
-              },
-              { 
-                icon: <Zap size={32} />, 
-                title: "E-Mobilität", 
-                desc: "Die Zukunft ist elektrisch. Wir beraten Sie umfassend zu Ladeinfrastruktur und E-Modellen.",
-                image: "/images/e-mobilitaet.jpg",
-                link: "/service"
-              },
-            ].map((s, i) => (
-              <motion.div 
-                key={i}
-                whileHover={{ y: -20 }}
-                className="bg-white rounded-[2rem] overflow-hidden shadow-2xl shadow-gray-200/50 flex flex-col h-full group"
-              >
-                <Link href={s.link} className="h-64 relative overflow-hidden block">
-                  <img src={s.image} alt={s.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
-                  <div className="absolute top-8 left-8 w-14 h-14 bg-brand-orange text-white rounded-2xl flex items-center justify-center shadow-2xl">
-                    {s.icon}
-                  </div>
+        {/* The Overlapping Search Box */}
+        <div className="absolute bottom-0 left-0 right-0 z-20 translate-y-1/2 px-4">
+          <div className="container mx-auto max-w-[1200px]">
+            <div className="bg-white rounded-[20px] shadow-xl p-8 border border-gray-100 flex flex-col gap-6">
+              
+              {/* Top Buttons (Fahrzeug-Showroom & Servicetermin) */}
+              <div className="flex justify-center gap-4 border-b border-gray-100 pb-6 -mt-2">
+                <Link href="/fahrzeuge" className="bg-[#009FE3] hover:bg-[#0086c2] text-white font-bold py-2.5 px-8 rounded-full text-sm flex items-center gap-2 transition-colors">
+                  <Car size={16} /> Fahrzeug-Showroom
                 </Link>
-                <div className="p-10 flex-grow flex flex-col">
-                  <h3 className="text-2xl font-black mb-4 uppercase tracking-tight">{s.title}</h3>
-                  <p className="text-gray-500 leading-relaxed mb-8 flex-grow">{s.desc}</p>
-                  <Link href={s.link} className="font-black uppercase tracking-widest text-xs flex items-center gap-2 group/link text-brand-dark hover:text-brand-orange transition-colors">
-                    Details lesen <ArrowRight size={14} className="group-hover/link:translate-x-1 transition-transform" />
-                  </Link>
+                <Link href="/termin" className="bg-[#009FE3] hover:bg-[#0086c2] text-white font-bold py-2.5 px-8 rounded-full text-sm flex items-center gap-2 transition-colors">
+                  <Settings size={16} /> Servicetermin
+                </Link>
+              </div>
+
+              {/* Bottom Search Controls */}
+              <div className="flex flex-col md:flex-row items-end gap-6 pt-2">
+                <div className="flex-1 w-full relative">
+                  <label className="text-[10px] uppercase font-bold text-gray-400 absolute -top-4 left-0">Hersteller</label>
+                  <select 
+                    value={selectedBrand}
+                    onChange={(e) => { setSelectedBrand(e.target.value); setSelectedModel(""); }}
+                    className="w-full bg-transparent py-2 border-b border-black text-lg font-bold text-black focus:outline-none focus:border-brand-orange transition-colors cursor-pointer appearance-none"
+                  >
+                    <option value="">Alle Hersteller</option>
+                    {availableBrands.map((brand: any) => (
+                      <option key={brand} value={brand}>{brand}</option>
+                    ))}
+                  </select>
                 </div>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
 
-      {/* Dark Teaser */}
-      <section className="py-32 bg-brand-dark text-white relative overflow-hidden">
-        <div className="container mx-auto px-4 relative z-10">
-          <div className="max-w-4xl mx-auto text-center">
-            <h2 className="text-5xl md:text-7xl font-black mb-10 leading-tight tracking-tighter">BEREIT FÜR EINE <br /><span className="text-brand-orange">PROBEFAHRT?</span></h2>
-            <p className="text-xl text-gray-400 mb-12 max-w-2xl mx-auto">
-              Steigen Sie ein und erleben Sie die Dynamik unserer neuesten Modelle hautnah. Unser Team findet den passenden Termin für Sie.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-6 justify-center">
-              <a href="tel:06041823380" className="bg-white text-brand-dark px-12 py-5 rounded-full font-black uppercase tracking-widest hover:bg-brand-orange hover:text-white transition-all shadow-2xl shadow-white/5">
-                06041 82338-0
-              </a>
-              <Link href="/termin" className="border-2 border-white/20 px-12 py-5 rounded-full font-black uppercase tracking-widest hover:bg-white/5 transition-all text-center flex items-center justify-center">
-                Online Termin
-              </Link>
-            </div>
-          </div>
-        </div>
-        {/* Decorative Circles */}
-        <div className="absolute top-1/2 left-0 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] border border-white/5 rounded-full pointer-events-none"></div>
-        <div className="absolute top-1/2 left-0 -translate-x-1/2 -translate-y-1/2 w-[1000px] h-[1000px] border border-white/5 rounded-full pointer-events-none"></div>
-      </section>
-
-      {/* Detailed Search Mockup */}
-      <section className="py-32 bg-white">
-        <div className="container mx-auto px-4">
-          <div className="bg-brand-gray rounded-[3rem] p-12 md:p-20 relative overflow-hidden">
-            <div className="relative z-10 flex flex-col lg:flex-row items-center gap-16">
-              <div className="flex-1">
-                <h2 className="text-4xl md:text-5xl font-black mb-8 uppercase tracking-tighter leading-none">
-                  FINDEN SIE <br />IHR NÄCHSTES <br /><span className="text-brand-orange">TRAUMAUTO.</span>
-                </h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-12">
-                  {/* Brand Filter */}
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Marke</label>
-                    <div className="relative group">
-                      <select 
-                        className="w-full bg-white p-4 rounded-xl border border-gray-100 text-sm font-black text-brand-dark appearance-none outline-none focus:ring-2 focus:ring-brand-orange/20 cursor-pointer"
-                        value={selectedBrand}
-                        onChange={(e) => setSelectedBrand(e.target.value)}
-                        title="Marke wählen"
-                      >
-                        <option value="">Alle Marken</option>
-                        {brands.map(b => <option key={b} value={b}>{b}</option>)}
-                      </select>
-                      <ChevronRight size={14} className="absolute right-4 top-1/2 -translate-y-1/2 rotate-90 text-gray-300 pointer-events-none" />
-                    </div>
-                  </div>
-
-                  {/* Model Filter */}
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Modell</label>
-                    <div className="relative group">
-                      <select 
-                        className="w-full bg-white p-4 rounded-xl border border-gray-100 text-sm font-black text-brand-dark appearance-none outline-none focus:ring-2 focus:ring-brand-orange/20 cursor-pointer disabled:opacity-50"
-                        value={selectedModel}
-                        onChange={(e) => setSelectedModel(e.target.value)}
-                        disabled={!selectedBrand}
-                        title="Modell wählen"
-                      >
-                        <option value="">Alle Modelle</option>
-                        {models.map(m => <option key={m} value={m}>{m}</option>)}
-                      </select>
-                      <ChevronRight size={14} className="absolute right-4 top-1/2 -translate-y-1/2 rotate-90 text-gray-300 pointer-events-none" />
-                    </div>
-                  </div>
-
-                  {/* Price Filter */}
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Preis bis</label>
-                    <div className="relative group">
-                      <select 
-                        className="w-full bg-white p-4 rounded-xl border border-gray-100 text-sm font-black text-brand-dark appearance-none outline-none focus:ring-2 focus:ring-brand-orange/20 cursor-pointer"
-                        value={selectedPrice}
-                        onChange={(e) => setSelectedPrice(e.target.value)}
-                        title="Maximalpreis wählen"
-                      >
-                        <option value="">Beliebig</option>
-                        <option value="15000">bis 15.000 €</option>
-                        <option value="25000">bis 25.000 €</option>
-                        <option value="35000">bis 35.000 €</option>
-                        <option value="50000">bis 50.000 €</option>
-                      </select>
-                      <ChevronRight size={14} className="absolute right-4 top-1/2 -translate-y-1/2 rotate-90 text-gray-300 pointer-events-none" />
-                    </div>
-                  </div>
-
-                  {/* Mileage Filter */}
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Kilometerstand</label>
-                    <div className="relative group">
-                      <select 
-                        className="w-full bg-white p-4 rounded-xl border border-gray-100 text-sm font-black text-brand-dark appearance-none outline-none focus:ring-2 focus:ring-brand-orange/20 cursor-pointer"
-                        value={selectedMileage}
-                        onChange={(e) => setSelectedMileage(e.target.value)}
-                        title="Maximalen Kilometerstand wählen"
-                      >
-                        <option value="">Beliebig</option>
-                        <option value="10000">bis 10.000 km</option>
-                        <option value="20000">bis 20.000 km</option>
-                        <option value="50000">bis 50.000 km</option>
-                        <option value="100000">bis 100.000 km</option>
-                      </select>
-                      <ChevronRight size={14} className="absolute right-4 top-1/2 -translate-y-1/2 rotate-90 text-gray-300 pointer-events-none" />
-                    </div>
-                  </div>
+                <div className="flex-1 w-full relative">
+                  <label className="text-[10px] uppercase font-bold text-gray-400 absolute -top-4 left-0">Modell</label>
+                  <select 
+                    value={selectedModel}
+                    onChange={(e) => setSelectedModel(e.target.value)}
+                    className="w-full bg-transparent py-2 border-b border-black text-lg font-bold text-black focus:outline-none focus:border-brand-orange transition-colors cursor-pointer appearance-none"
+                    disabled={availableModels.length === 0}
+                  >
+                    <option value="">Alle Modelle</option>
+                    {availableModels.map((model: any) => (
+                      <option key={model} value={model}>{model}</option>
+                    ))}
+                  </select>
                 </div>
+
+                <div className="flex-1 w-full relative">
+                  <label className="text-[10px] uppercase font-bold text-gray-400 absolute -top-4 left-0">Preis bis</label>
+                  <select 
+                    value={selectedPrice}
+                    onChange={(e) => setSelectedPrice(e.target.value)}
+                    className="w-full bg-transparent py-2 border-b border-black text-lg font-bold text-black focus:outline-none focus:border-brand-orange transition-colors cursor-pointer appearance-none"
+                  >
+                    <option value="">Beliebig</option>
+                    <option value="15000">15.000 €</option>
+                    <option value="20000">20.000 €</option>
+                    <option value="25000">25.000 €</option>
+                    <option value="30000">30.000 €</option>
+                    <option value="40000">40.000 €</option>
+                    <option value="50000">50.000 €</option>
+                  </select>
+                </div>
+
                 <button 
                   onClick={handleSearch}
-                  className="w-full bg-brand-orange hover:bg-brand-dark text-white py-5 rounded-2xl font-black uppercase tracking-[0.2em] shadow-xl shadow-brand-orange/20 transition-all flex items-center justify-center gap-3 active:scale-[0.98]"
+                  className="w-full md:w-auto bg-white border border-black hover:bg-black hover:text-white text-black font-bold py-3 px-8 rounded-[30px] transition-colors flex items-center justify-center gap-2 whitespace-nowrap shadow-sm"
                 >
-                  Fahrzeugsuche starten <ArrowRight size={20} />
+                  <Search size={18} /> {allVehicles.length > 0 ? `${liveMatchCount} Treffer` : "Laden..."}
                 </button>
               </div>
-              <div className="flex-1 w-full lg:w-auto">
-                <AnimatePresence mode="wait">
-                  {topVehicle ? (
-                    <motion.div 
-                      key={topVehicle.id}
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      className="relative aspect-[4/3] rounded-[2rem] overflow-hidden shadow-2xl group cursor-pointer"
-                    >
-                      <Link href={`/fahrzeuge/${topVehicle.external_id}`}>
-                        <img 
-                          src={(topVehicle.image && topVehicle.image !== "") ? topVehicle.image : "/images/betrieb.jpg"} 
-                          alt={topVehicle.title} 
-                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-[2s]" 
-                        />
-                        
-                        {/* Premium Glassmorphism Badge */}
-                        <div className="absolute bottom-4 md:bottom-6 left-4 md:left-6 right-4 md:right-6 p-6 md:p-10 bg-white/10 backdrop-blur-3xl border border-white/20 rounded-2xl md:rounded-[2.5rem] flex flex-col md:flex-row justify-between items-center text-white ring-1 ring-white/10 shadow-2xl">
-                          <div className="text-center md:text-left mb-4 md:mb-0">
-                            <div className="flex items-center gap-3 justify-center md:justify-start mb-2">
-                              <span className="w-6 md:w-8 h-px bg-brand-orange"></span>
-                              <div className="text-[8px] md:text-[10px] uppercase font-black tracking-[0.3em] text-brand-orange">Top Angebot</div>
-                            </div>
-                            <div className="text-xl md:text-3xl font-black uppercase tracking-tighter leading-none">{topVehicle.title}</div>
-                          </div>
-                          <div className="flex flex-col items-center md:items-end">
-                            <div className="flex items-baseline gap-2">
-                              <span className="text-2xl md:text-4xl font-black tracking-tighter">
-                                {fin ? new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(fin.monthlyInstallment).replace(',00', '') : topVehicle.price}
-                              </span>
-                              {fin && <span className="text-[10px] uppercase font-black opacity-60 tracking-widest">/ Monat</span>}
-                            </div>
-                            <div className="text-[8px] md:text-[9px] uppercase font-black tracking-[0.2em] opacity-40 mt-1">Ohne Anzahlung | {fin?.paybackPeriod?.replace('MONTHS_', '') || '36'} Mo.</div>
-                          </div>
-                        </div>
-                      </Link>
-                    </motion.div>
-                  ) : (
-                    <div className="aspect-[4/3] rounded-[2rem] bg-gray-200 animate-pulse flex items-center justify-center text-gray-400 font-black uppercase tracking-widest text-xs italic">
-                      Lade exklusives Angebot...
-                    </div>
-                  )}
-                </AnimatePresence>
-              </div>
+
             </div>
           </div>
         </div>
       </section>
+
+      {/* Spacing for overlapping search box */}
+      <div className="h-24 md:h-32"></div>
+
+      {/* 2. VEHICLE GRID */}
+      <section className="py-12 bg-[#F2F2F2]">
+        <div className="container mx-auto max-w-[1400px] px-4">
+          <h2 className="text-3xl md:text-4xl font-bold text-center text-black mb-12">
+            Unsere neuesten Angebote
+          </h2>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {topVehicles.length > 0 ? topVehicles.map((vehicle) => {
+              const brandLogo = `/images/${(vehicle.brand || 'wiegand').toLowerCase()}.svg`;
+              
+              return (
+                <div key={vehicle.id} className="bg-white rounded-[15px] overflow-hidden group flex flex-col relative">
+                  
+                  {/* Image Area */}
+                  <Link href={`/fahrzeuge/${vehicle.external_id}`} className="block relative h-[250px] overflow-hidden bg-gray-100">
+                    <img src={vehicle.image || "/images/hero.jpg"} alt={vehicle.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                    
+                    {/* Brand Logo Overlay */}
+                    <div className="absolute top-4 left-4 bg-white/90 p-2 rounded-md">
+                      <img src={brandLogo} alt={vehicle.brand} className="h-4 object-contain" onError={(e) => (e.currentTarget.style.display = 'none')} />
+                    </div>
+
+                    {/* Heart Icon Overlay */}
+                    <button className="absolute top-4 right-4 w-8 h-8 bg-white/90 rounded-full flex items-center justify-center text-gray-400 hover:text-brand-orange transition-colors">
+                      <Heart size={16} />
+                    </button>
+                  </Link>
+
+                  {/* Content Area */}
+                  <div className="p-6 flex flex-col flex-1">
+                    <div className="mb-4">
+                      <Link href={`/fahrzeuge/${vehicle.external_id}`}>
+                        <h3 className="font-bold text-black text-xl leading-tight mb-1 group-hover:text-brand-orange transition-colors">
+                          {vehicle.brand} {vehicle.title?.replace(vehicle.brand || '', '').trim()}
+                        </h3>
+                      </Link>
+                      <p className="text-sm text-gray-500 line-clamp-1">{vehicle.raw_data?.modelDescription || 'Attraktives Angebot'}</p>
+                    </div>
+
+                    {/* Price */}
+                    <div className="mb-6">
+                      <div className="text-[28px] font-bold text-black">{vehicle.price}</div>
+                      <div className="text-[10px] text-gray-400 mt-1">Bruttopreis inkl. MwSt.</div>
+                    </div>
+                    
+                    {/* Specs Grid */}
+                    <div className="grid grid-cols-2 gap-y-3 gap-x-4 text-[13px] text-gray-600 mt-auto pt-4 border-t border-gray-100">
+                      <div className="flex items-center gap-2">
+                        <Calendar size={14} className="text-black" /> 
+                        <span className="font-medium">{vehicle.registration_date || 'Neuwagen'}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Gauge size={14} className="text-black" /> 
+                        <span className="font-medium">{vehicle.mileage || '0 km'}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Zap size={14} className="text-black" /> 
+                        <span className="font-medium">{vehicle.power || '110 kW'}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Fuel size={14} className="text-black" /> 
+                        <span className="font-medium">{vehicle.fuel_type || 'Benzin'}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              );
+            }) : (
+              <div className="col-span-full py-20 text-center flex flex-col items-center">
+                <div className="w-12 h-12 border-4 border-gray-200 border-t-brand-orange rounded-full animate-spin mb-4"></div>
+                <p className="text-gray-500 font-bold">Fahrzeuge werden geladen...</p>
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-center mt-12">
+            <Link href="/fahrzeuge" className="bg-white border border-black hover:bg-black hover:text-white text-black font-bold py-3 px-10 rounded-[30px] transition-colors inline-block text-center">
+              Alle Fahrzeuge anzeigen
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* 3. ADDITIONAL CONTENT (News / Service) */}
+      <section className="py-20 bg-white">
+        <div className="container mx-auto max-w-[1400px] px-4">
+          <div className="grid md:grid-cols-2 gap-8">
+            
+            <div className="relative h-[400px] rounded-[20px] overflow-hidden group">
+              <img src="/images/meisterwerkstatt.jpg" alt="Werkstatt" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex flex-col justify-end p-8 text-white">
+                <h3 className="text-3xl font-bold mb-2">Werkstatt & Service</h3>
+                <p className="text-lg text-gray-200 mb-6">Perfekter Service für Ihren SEAT, CUPRA oder SKODA.</p>
+                <Link href="/termin" className="bg-brand-orange hover:bg-[#e66a00] text-white font-bold py-3 px-8 rounded-[30px] transition-colors w-fit flex items-center gap-2">
+                  Termin vereinbaren <ArrowRight size={18} />
+                </Link>
+              </div>
+            </div>
+
+            <div className="relative h-[400px] rounded-[20px] overflow-hidden group">
+              <img src="/images/betrieb.jpg" alt="Über uns" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex flex-col justify-end p-8 text-white">
+                <h3 className="text-3xl font-bold mb-2">Karriere bei Wiegand</h3>
+                <p className="text-lg text-gray-200 mb-6">Werden Sie Teil unseres starken Teams in Büdingen oder Gelnhausen.</p>
+                <Link href="/karriere" className="bg-brand-orange hover:bg-[#e66a00] text-white font-bold py-3 px-8 rounded-[30px] transition-colors w-fit flex items-center gap-2">
+                  Stellenangebote ansehen <ArrowRight size={18} />
+                </Link>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
     </div>
   );
 }

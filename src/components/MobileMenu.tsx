@@ -21,7 +21,7 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({ isOpen, onClose, items }
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-brand-dark/60 backdrop-blur-sm z-[60] xl:hidden"
+            className="fixed inset-0 bg-brand-dark/60 backdrop-blur-sm z-[60]"
           />
 
           {/* Menu Panel */}
@@ -30,7 +30,7 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({ isOpen, onClose, items }
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
             transition={{ type: "spring", damping: 25, stiffness: 200 }}
-            className="fixed top-0 right-0 bottom-0 w-[85%] max-w-sm bg-white z-[70] xl:hidden shadow-2xl flex flex-col"
+            className="fixed top-0 right-0 bottom-0 w-[85%] max-w-sm bg-white z-[70] shadow-2xl flex flex-col"
           >
             {/* Header */}
             <div className="p-6 border-b border-gray-100 flex items-center justify-between">

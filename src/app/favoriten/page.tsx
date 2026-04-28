@@ -4,13 +4,13 @@ import InventoryManager from "@/components/inventory/InventoryManager";
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Fahrzeugbestand | Autohaus Wiegand – SEAT, CUPRA & SKODA",
-  description: "Entdecken Sie unsere große Auswahl an Neu- und Gebrauchtwagen sowie erstklassigen Werkstatt-Service in Büdingen und Gelnhausen.",
+  title: "Favoriten | Autohaus Wiegand",
+  description: "Ihre gemerkten Fahrzeuge im Überblick.",
 };
 
 export const dynamic = 'force-dynamic';
 
-export default async function VehiclesPage({ searchParams }: { searchParams: Promise<any> }) {
+export default async function FavoritesPage({ searchParams }: { searchParams: Promise<any> }) {
   const resolvedSearchParams = await searchParams;
   
   const { data: vehicles } = await supabase
@@ -35,11 +35,16 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Pro
   return (
     <div className="bg-[#F2F2F2] min-h-screen pb-40">
       <div className="container mx-auto px-4 py-12 md:py-20">
+        <div className="mb-10">
+          <h1 className="text-3xl md:text-4xl font-extrabold text-gray-900 tracking-tight">Meine Merkliste</h1>
+          <p className="text-gray-500 text-sm mt-2">Ihre favorisierten Fahrzeuge auf einen Blick.</p>
+        </div>
         <InventoryManager 
           key={JSON.stringify(resolvedSearchParams)}
           initialVehicles={vehicles || []} 
           options={options} 
           serverSearchParams={resolvedSearchParams}
+          showOnlyFavorites={true}
         />
       </div>
     </div>
