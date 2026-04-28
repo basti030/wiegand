@@ -12,9 +12,8 @@ const NAV_ITEMS = [
   { name: 'Angebote', href: '/angebote' },
   { name: 'Service', href: '/service' },
   { name: 'Standorte', href: '/standorte' },
-  { name: 'Mitarbeiter', href: '/mitarbeiter' },
   { name: 'Karriere', href: '/karriere' },
-  { name: 'Über uns', href: '/unternehmen' },
+  { name: 'Ansprechpartner', href: '/unternehmen' },
 ];
 
 export const Header: React.FC = () => {

@@ -230,7 +230,7 @@ export default async function TeamPage() {
                           <img 
                             src={member.image_url || getEmployeeImage(member.name)} 
                             alt={member.name} 
-                            className="w-full h-full object-cover transition-all duration-700 group-hover:scale-110 filter grayscale group-hover:grayscale-0"
+                            className="w-full h-full object-cover transition-all duration-700 group-hover:scale-110"
                           />
                           <div className="absolute inset-0 bg-gradient-to-t from-brand-dark/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 flex flex-col justify-end p-6">
                             <span className="text-[10px] font-black text-brand-orange uppercase tracking-[0.2em] mb-1">Kontaktieren</span>
